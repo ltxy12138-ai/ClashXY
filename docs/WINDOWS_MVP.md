@@ -70,6 +70,9 @@ Results:
 - Windows Release: built successfully
 - Release manifest: `requireAdministrator`
 - Packaged Mihomo SHA-256: matches the verified upstream core
+- Bilingual Inno Setup installer: built successfully
+- Upgrade migration: `1.9.0+14` to `1.9.1+15`, application data preserved
+- Isolated panel/Reality/Mihomo/TUN/HTTP E2E: three consecutive passes
 
 ## Remaining release work
 
@@ -78,10 +81,11 @@ sleep/resume recovery, bounded Mihomo crash restart, ownership-scoped TUN/DNS
 cleanup, and verified core update/rollback. The remaining release work is:
 
 - full P6-010 clean-machine and lifecycle E2E evidence
-- signed installer and upgrade migration
-- final release archive, checksums, corresponding-source links, and smoke test
+- trusted code signing for the generated installer
+- clean Windows 10/11 lifecycle smoke test
+- final release publication, checksums, and corresponding-source links
 
 System tray, close-to-tray, native single instance, hidden startup and real HKCU
 startup registration are implemented. The public product name and GPL license
-are settled; signing, upgrade verification, and clean-machine smoke testing are
-still required.
+are settled, and upgrade verification is complete; signing and clean-machine
+smoke testing are still required.
