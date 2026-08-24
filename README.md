@@ -39,6 +39,8 @@ and deleted as soon as the core becomes ready.
 
 Read [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before distributing a build.
+Managed-device identity and future subscription authentication are documented
+in [docs/DEVICE_IDENTITY.md](docs/DEVICE_IDENTITY.md).
 
 ## Requirements
 

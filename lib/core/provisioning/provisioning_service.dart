@@ -46,12 +46,17 @@ class ProvisioningService {
 
   Future<ConnectionProfile> provision({
     InboundPreference preference = InboundPreference.automatic,
+    String? displayName,
   }) async {
     RemoteClient? remoteClient;
     String? profileId;
     try {
       _states.add(const ProvisioningPreparing());
       final deviceId = await _identity.getOrCreate();
+      final resolvedDisplayName = resolveManagedDeviceDisplayName(
+        displayName,
+        deviceId,
+      );
       final inbounds = _selector.select(
         await _panel.listInbounds(),
         preference,
@@ -73,7 +78,7 @@ class ProvisioningService {
         id: profileId,
         panelId: panelId,
         remoteClientId: remoteClient.id,
-        displayName: deviceId,
+        displayName: resolvedDisplayName,
         proxies: proxies,
         createdAt: now,
       );

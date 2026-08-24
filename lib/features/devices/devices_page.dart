@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +20,9 @@ class DevicesPage extends ConsumerWidget {
     final managedProfiles = state.profiles
         .where((profile) => !profile.isStandalone)
         .toList(growable: false);
+    final clientIds = <String, String>{
+      for (final device in state.localDevices) device.profileId: device.name,
+    };
     return ListView(
       padding: const EdgeInsets.all(28),
       children: [
@@ -58,7 +63,10 @@ class DevicesPage extends ConsumerWidget {
                         ? null
                         : state.panel == null
                         ? () => context.go('/setup?panel=1')
-                        : controller.provisionAndConnect,
+                        : () => _createDevice(
+                            context,
+                            controller.provisionAndConnect,
+                          ),
                     icon: const Icon(Icons.add_rounded),
                     label: Text(
                       state.panel == null
@@ -76,6 +84,7 @@ class DevicesPage extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: _LocalDeviceTile(
                 profile: profile,
+                clientId: clientIds[profile.id],
                 busy: state.busy,
                 onDelete: () => _confirmDelete(
                   context,
@@ -128,6 +137,70 @@ class DevicesPage extends ConsumerWidget {
     );
   }
 
+  Future<void> _createDevice(
+    BuildContext context,
+    Future<void> Function({String? displayName}) create,
+  ) async {
+    final l10n = context.l10n;
+    final controller = TextEditingController(text: Platform.localHostname);
+    final formKey = GlobalKey<FormState>();
+    final displayName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.createLocalDevice),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 80,
+                decoration: InputDecoration(
+                  labelText: l10n.deviceDisplayName,
+                  hintText: l10n.deviceDisplayNameHint,
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? l10n.deviceDisplayNameValidation
+                    : null,
+                onFieldSubmitted: (_) {
+                  if (formKey.currentState?.validate() == true) {
+                    Navigator.pop(context, controller.text.trim());
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.machineIdentityNote,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(context, controller.text.trim());
+              }
+            },
+            child: Text(l10n.createLocalDevice),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (displayName != null && context.mounted) {
+      await create(displayName: displayName);
+    }
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     Future<void> Function(ConnectionProfile) delete,
@@ -163,11 +236,13 @@ class DevicesPage extends ConsumerWidget {
 class _LocalDeviceTile extends StatelessWidget {
   const _LocalDeviceTile({
     required this.profile,
+    required this.clientId,
     required this.busy,
     required this.onDelete,
   });
 
   final ConnectionProfile profile;
+  final String? clientId;
   final bool busy;
   final VoidCallback onDelete;
 
@@ -180,8 +255,10 @@ class _LocalDeviceTile extends StatelessWidget {
         leading: const CircleAvatar(child: Icon(Icons.computer_rounded)),
         title: Text(profile.displayName),
         subtitle: Text(
-          '${profile.proxies.map((proxy) => proxy.protocol.name).join(' · ')} · Client #${profile.remoteClientId}',
+          '${clientId ?? profile.displayName} · Client #${profile.remoteClientId}\n'
+          '${profile.proxies.map((proxy) => proxy.protocol.name).join(' · ')}',
         ),
+        isThreeLine: true,
         trailing: IconButton(
           tooltip: l10n.deleteDeviceTooltip,
           onPressed: busy ? null : onDelete,

@@ -622,6 +622,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get createLocalDevice => '创建本机设备';
 
   @override
+  String get deviceDisplayName => '设备显示名称';
+
+  @override
+  String get deviceDisplayNameHint => '例如：上海办公电脑';
+
+  @override
+  String get deviceDisplayNameValidation => '请输入设备显示名称。';
+
+  @override
+  String get machineIdentityNote =>
+      'ClashXY 会另行生成兼容 2S-UI 的稳定机器 ID；修改此显示名称不会改变机器身份。';
+
+  @override
   String get remoteClients => '远程客户端';
 
   @override

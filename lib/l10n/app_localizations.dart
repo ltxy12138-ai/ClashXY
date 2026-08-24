@@ -1226,6 +1226,30 @@ abstract class AppLocalizations {
   /// **'Create local device'**
   String get createLocalDevice;
 
+  /// No description provided for @deviceDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Device display name'**
+  String get deviceDisplayName;
+
+  /// No description provided for @deviceDisplayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'For example: Shanghai office PC'**
+  String get deviceDisplayNameHint;
+
+  /// No description provided for @deviceDisplayNameValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a device display name.'**
+  String get deviceDisplayNameValidation;
+
+  /// No description provided for @machineIdentityNote.
+  ///
+  /// In en, this message translates to:
+  /// **'ClashXY generates a separate stable machine ID for 2S-UI compatibility. Renaming this label will not change that identity.'**
+  String get machineIdentityNote;
+
   /// No description provided for @remoteClients.
   ///
   /// In en, this message translates to:

@@ -75,6 +75,10 @@ ClashXY 的主产品是一个完整、通用的 Mihomo / Clash 客户端。
 - VLESS Reality、Hysteria2 配置生成
 - 远程写入失败时回滚
 
+设备显示名、稳定机器 ID、2S-UI Client 映射和未来的订阅 Token 必须保持
+独立；详细边界见 [DEVICE_IDENTITY.md](DEVICE_IDENTITY.md)。独立订阅 Token
+属于后续服务端订阅认证层，不由 Windows 客户端伪造实现。
+
 ### Windows 稳定化
 
 - 系统托盘
