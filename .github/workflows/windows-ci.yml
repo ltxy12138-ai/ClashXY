@@ -30,4 +30,3 @@ jobs:
         run: flutter test
       - name: Build Windows release
         run: flutter build windows --release
-
