@@ -73,6 +73,8 @@ Results:
 - Bilingual Inno Setup installer: built successfully
 - Upgrade migration: `1.9.0+14` to `1.9.1+15`, application data preserved
 - Isolated panel/Reality/Mihomo/TUN/HTTP E2E: three consecutive passes
+- Main-branch CI release candidate: checksums and GitHub/Sigstore provenance
+  verified for both Windows binaries
 
 ## Remaining release work
 
