@@ -917,12 +917,21 @@ ClashXY 应用数据目录下、完整路径精确匹配的 `core/current.exe`�
 
 ## P6-009 Core Update
 
+**状态：✅ 已完成（2026-08-24）**
+
 支持：
 
 - download
 - verify
 - switch
 - rollback
+
+设置页可检查 `MetaCubeX/mihomo` 官方最新稳定版。更新器只选择唯一的 Windows
+x64 compatible ZIP，只接受 HTTPS GitHub 来源和 Release API 提供的 SHA-256；
+下载大小受限，校验通过后才在内存中提取单一根目录 EXE。新 Core 先写入暂存文件、
+核对落盘哈希并执行 `-v` 验证平台及版本，再保存当前 Core 作为经过校验的
+`previous` 后切换。中断切换会在下次启动恢复 `previous`，设置页也支持手动回滚；
+安装或回滚前必须断开 VPN。
 
 ---
 

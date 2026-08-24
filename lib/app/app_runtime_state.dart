@@ -10,6 +10,87 @@ enum AppStage { booting, onboarding, ready }
 
 enum DelayTestStatus { idle, testing, success, failed }
 
+enum CoreUpdateApplyStage { downloading, installing, rollingBack }
+
+enum CoreUpdateFailureReason {
+  checkFailed,
+  applyFailed,
+  rollbackFailed,
+  disconnectRequired,
+}
+
+sealed class CoreUpdateState {
+  const CoreUpdateState({
+    required this.currentVersion,
+    required this.canRollback,
+  });
+
+  final String currentVersion;
+  final bool canRollback;
+
+  bool get busy => this is CoreUpdateChecking || this is CoreUpdateApplying;
+}
+
+final class CoreUpdateIdle extends CoreUpdateState {
+  const CoreUpdateIdle({super.currentVersion = '', super.canRollback = false});
+}
+
+final class CoreUpdateChecking extends CoreUpdateState {
+  const CoreUpdateChecking({
+    required super.currentVersion,
+    required super.canRollback,
+  });
+}
+
+final class CoreUpdateAvailable extends CoreUpdateState {
+  const CoreUpdateAvailable({
+    required super.currentVersion,
+    required super.canRollback,
+    required this.latestVersion,
+  });
+
+  final String latestVersion;
+}
+
+final class CoreUpdateCurrent extends CoreUpdateState {
+  const CoreUpdateCurrent({
+    required super.currentVersion,
+    required super.canRollback,
+  });
+}
+
+final class CoreUpdateApplying extends CoreUpdateState {
+  const CoreUpdateApplying({
+    required super.currentVersion,
+    required super.canRollback,
+    required this.targetVersion,
+    required this.stage,
+  });
+
+  final String targetVersion;
+  final CoreUpdateApplyStage stage;
+}
+
+final class CoreUpdateSucceeded extends CoreUpdateState {
+  const CoreUpdateSucceeded({
+    required super.currentVersion,
+    required super.canRollback,
+    required this.rolledBack,
+  });
+
+  final bool rolledBack;
+}
+
+final class CoreUpdateFailed extends CoreUpdateState {
+  const CoreUpdateFailed({
+    required super.currentVersion,
+    required super.canRollback,
+    required this.reason,
+  });
+
+  final CoreUpdateFailureReason reason;
+}
+
 class AppRuntimeState {
   const AppRuntimeState({
     this.stage = AppStage.booting,
@@ -38,6 +119,7 @@ class AppRuntimeState {
     this.coreMode = '',
     this.activeProfileId,
     this.settings = const AppSettings(),
+    this.coreUpdate = const CoreUpdateIdle(),
   });
 
   final AppStage stage;
@@ -66,6 +148,7 @@ class AppRuntimeState {
   final String coreMode;
   final String? activeProfileId;
   final AppSettings settings;
+  final CoreUpdateState coreUpdate;
 
   AppRuntimeState copyWith({
     AppStage? stage,
@@ -94,6 +177,7 @@ class AppRuntimeState {
     String? coreMode,
     Object? activeProfileId = _unset,
     AppSettings? settings,
+    CoreUpdateState? coreUpdate,
   }) {
     return AppRuntimeState(
       stage: stage ?? this.stage,
@@ -134,6 +218,7 @@ class AppRuntimeState {
           ? this.activeProfileId
           : activeProfileId as String?,
       settings: settings ?? this.settings,
+      coreUpdate: coreUpdate ?? this.coreUpdate,
     );
   }
 }

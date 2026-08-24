@@ -18,6 +18,8 @@ The app stores data in these Windows locations:
   data. The generated plaintext `config.yaml` exists only while the core starts
   and is deleted once Mihomo is ready. Stale configuration files are removed on
   the next app startup.
+- `%APPDATA%\ClashXY\core\` — the active Mihomo executable, one verified
+  rollback executable, and non-secret version/SHA-256 metadata.
 
 The database keeps its pre-release filename for upgrade compatibility. On the
 first ClashXY launch, if the current secure-storage file does not yet exist,
@@ -38,6 +40,8 @@ Depending on the features used, the app connects directly to:
 - the user-supplied 2S-UI panel;
 - GeoIP, GeoSite, or rule-provider URLs requested by the imported Mihomo
   configuration.
+- `api.github.com` and GitHub release asset hosts when the user checks for or
+  installs a Mihomo Core update.
 
 No profile, credential, traffic record, or panel data is sent to a service
 operated by this project.

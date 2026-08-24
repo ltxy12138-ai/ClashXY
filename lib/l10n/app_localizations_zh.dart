@@ -784,6 +784,83 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snifferEnabled => '启用协议嗅探';
 
   @override
+  String get coreUpdateTitle => 'Mihomo Core 更新';
+
+  @override
+  String get coreUpdateSubtitle =>
+      '检查 MetaCubeX/mihomo 官方稳定版的 Windows x64 兼容构建。';
+
+  @override
+  String coreCurrentVersion(String version) {
+    return '已安装版本：$version';
+  }
+
+  @override
+  String get coreVersionUnknown => '未知';
+
+  @override
+  String get coreUpdateIdle => '可随时检查经过校验的 Core 更新。';
+
+  @override
+  String get coreCheckForUpdates => '检查更新';
+
+  @override
+  String get coreChecking => '正在检查官方稳定版…';
+
+  @override
+  String coreUpdateAvailable(String version) {
+    return '发现经过校验的新版本 $version。';
+  }
+
+  @override
+  String get coreUpToDate => '当前 Core 已是最新稳定版。';
+
+  @override
+  String get coreDownloadInstall => '下载并安装';
+
+  @override
+  String coreDownloading(String version) {
+    return '正在下载并校验版本 $version…';
+  }
+
+  @override
+  String coreInstalling(String version) {
+    return '正在验证并切换到版本 $version…';
+  }
+
+  @override
+  String coreUpdateSucceeded(String version) {
+    return 'Core $version 已安装，并保留一个可回滚的旧版本。';
+  }
+
+  @override
+  String get coreRollback => '回滚';
+
+  @override
+  String get coreRollingBack => '正在校验并恢复上一个 Core…';
+
+  @override
+  String coreRollbackSucceeded(String version) {
+    return '已回滚到 Core $version。';
+  }
+
+  @override
+  String get coreUpdateCheckFailed => '无法检查 Mihomo 官方稳定版。';
+
+  @override
+  String get coreUpdateApplyFailed => 'Core 更新失败，已保留或恢复原版本。';
+
+  @override
+  String get coreRollbackFailed => 'Core 回滚失败，已保留当前版本。';
+
+  @override
+  String get coreUpdateDisconnectRequired => '安装或回滚 Core 前请先断开 VPN。';
+
+  @override
+  String get coreUpdateSecurityNote =>
+      '只接受 HTTPS 官方 Release 元数据和带官方 SHA-256 的资产；切换通过暂存文件完成，并保留一个经过校验的旧版本。';
+
+  @override
   String get runtimeTokenMissing => '已保存的 2S-UI 令牌缺失，请重新登录面板。';
 
   @override
