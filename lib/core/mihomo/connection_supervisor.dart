@@ -10,6 +10,7 @@ import '../../platform/platform_vpn_service.dart';
 import 'binary_manager.dart';
 import 'config_manager.dart';
 import 'controller_client.dart';
+import 'crash_recovery_backoff.dart';
 import 'health_checker.dart';
 import 'mihomo_engine.dart';
 import 'process_manager.dart';
@@ -22,7 +23,8 @@ class ConnectionSupervisor implements MihomoEngine {
     required this.platform,
     required this.health,
     required this.settings,
-  }) {
+    CrashRecoveryBackoff? crashRecovery,
+  }) : crashRecovery = crashRecovery ?? CrashRecoveryBackoff() {
     _exitSubscription = process.exits.listen(_handleExit);
   }
 
@@ -32,6 +34,7 @@ class ConnectionSupervisor implements MihomoEngine {
   final PlatformVpnService platform;
   final HealthChecker health;
   final AppSettings settings;
+  final CrashRecoveryBackoff crashRecovery;
   final StreamController<AppConnectionState> _states =
       StreamController<AppConnectionState>.broadcast();
   final StreamController<TrafficSample> _traffic =
@@ -45,8 +48,14 @@ class ConnectionSupervisor implements MihomoEngine {
   RuntimeConfigHandle? _configHandle;
   ControllerClient? _controller;
   ConnectionProfile? _profile;
+  Timer? _crashRecoveryTimer;
+  Timer? _crashStabilityTimer;
+  Future<void>? _unexpectedExitRecovery;
   bool _stopping = false;
   bool _starting = false;
+  bool _handlingUnexpectedExit = false;
+  bool _disposed = false;
+  int _crashRecoveryGeneration = 0;
 
   @override
   Stream<AppConnectionState> get states => _states.stream;
@@ -58,9 +67,23 @@ class ConnectionSupervisor implements MihomoEngine {
 
   @override
   Future<void> start(ConnectionProfile profile) async {
-    if (process.running || _starting || _stopping) return;
+    _cancelCrashRecovery(resetAttempts: true);
+    await _start(profile, recoveryAttempt: false);
+  }
+
+  Future<void> _start(
+    ConnectionProfile profile, {
+    required bool recoveryAttempt,
+    int? recoveryGeneration,
+  }) async {
+    if (process.running ||
+        _starting ||
+        _stopping ||
+        _recoveryWasCancelled(recoveryAttempt, recoveryGeneration)) {
+      return;
+    }
     _starting = true;
-    _states.add(const Connecting());
+    if (!recoveryAttempt) _states.add(const Connecting());
     _profile = profile;
     try {
       if (!await platform.isAdministrator()) {
@@ -79,8 +102,16 @@ class ConnectionSupervisor implements MihomoEngine {
       // remain available during this bootstrap step.
       await process.validate(executable: executable, config: handle.file);
       await _runPreflightChecks();
+      if (_recoveryWasCancelled(recoveryAttempt, recoveryGeneration)) {
+        await _cleanup();
+        return;
+      }
       await process.start(executable: executable, config: handle.file);
       await _waitUntilReady(controller);
+      if (_recoveryWasCancelled(recoveryAttempt, recoveryGeneration)) {
+        await _cleanup();
+        return;
+      }
       // Mihomo has loaded the configuration. Keep the controller secret only
       // in memory and remove the plaintext YAML while the connection runs.
       await config.clear(handle);
@@ -93,13 +124,19 @@ class ConnectionSupervisor implements MihomoEngine {
         onError: (Object _) {},
       );
       _states.add(Connected(since: DateTime.now().toUtc()));
+      _armStableRecoveryReset();
       _starting = false;
       if (!process.running) {
         _handleExit(process.lastExitCode ?? -1);
       }
     } catch (error) {
       await _cleanup();
+      if (_recoveryWasCancelled(recoveryAttempt, recoveryGeneration)) return;
       final message = error is AppException ? error.message : '无法启动 Mihomo。';
+      if (recoveryAttempt && !_stopping && !_disposed) {
+        _scheduleCrashRecovery(profile, message);
+        return;
+      }
       _states.add(ConnectionFailure(message));
       throw MihomoException(message, cause: error);
     } finally {
@@ -164,14 +201,80 @@ class ConnectionSupervisor implements MihomoEngine {
     );
   }
 
+  void _scheduleCrashRecovery(ConnectionProfile profile, String message) {
+    if (_stopping || _disposed) return;
+    _crashStabilityTimer?.cancel();
+    _crashStabilityTimer = null;
+    final attempt = crashRecovery.next();
+    if (attempt == null) {
+      _states.add(
+        ConnectionFailure(
+          '$message 已连续 ${crashRecovery.maxAttempts} 次自动恢复失败，'
+          'ClashXY 已停止重试；请检查配置或系统网络后手动连接。',
+        ),
+      );
+      return;
+    }
+    final generation = ++_crashRecoveryGeneration;
+    _states.add(Reconnecting(attempt: attempt.number));
+    _crashRecoveryTimer?.cancel();
+    _crashRecoveryTimer = Timer(attempt.delay, () {
+      _crashRecoveryTimer = null;
+      if (_disposed || _stopping || generation != _crashRecoveryGeneration) {
+        return;
+      }
+      unawaited(
+        _start(profile, recoveryAttempt: true, recoveryGeneration: generation),
+      );
+    });
+  }
+
+  bool _recoveryWasCancelled(bool recoveryAttempt, int? generation) {
+    return recoveryAttempt &&
+        (_disposed || generation != _crashRecoveryGeneration);
+  }
+
+  void _armStableRecoveryReset() {
+    _crashStabilityTimer?.cancel();
+    _crashStabilityTimer = null;
+    if (crashRecovery.attempts == 0) return;
+    final generation = _crashRecoveryGeneration;
+    _crashStabilityTimer = Timer(crashRecovery.stablePeriod, () {
+      _crashStabilityTimer = null;
+      if (!_disposed &&
+          process.running &&
+          generation == _crashRecoveryGeneration) {
+        crashRecovery.reset();
+      }
+    });
+  }
+
+  void _cancelCrashRecovery({required bool resetAttempts}) {
+    _crashRecoveryGeneration++;
+    _crashRecoveryTimer?.cancel();
+    _crashRecoveryTimer = null;
+    _crashStabilityTimer?.cancel();
+    _crashStabilityTimer = null;
+    if (resetAttempts) crashRecovery.reset();
+  }
+
   @override
   Future<void> stop() async {
+    _cancelCrashRecovery(resetAttempts: true);
     if (_stopping) return;
-    if (!process.running && _configHandle == null) return;
+    await _unexpectedExitRecovery;
+    if (_stopping) return;
+    if (!process.running && _configHandle == null) {
+      final hadProfile = _profile != null;
+      _profile = null;
+      if (hadProfile) _states.add(const Disconnected());
+      return;
+    }
     _stopping = true;
     _states.add(const Stopping());
     try {
       await _cleanup();
+      _profile = null;
       _states.add(const Disconnected());
     } finally {
       _stopping = false;
@@ -279,13 +382,57 @@ class ConnectionSupervisor implements MihomoEngine {
   }
 
   void _handleExit(int code) {
-    if (!_stopping && !_starting && _configHandle != null) {
-      _states.add(ConnectionFailure(process.describeFailure(code)));
-      unawaited(_cleanup());
+    final profile = _profile;
+    if (_stopping ||
+        _starting ||
+        _disposed ||
+        _handlingUnexpectedExit ||
+        _configHandle == null ||
+        profile == null) {
+      return;
     }
+    _handlingUnexpectedExit = true;
+    _crashStabilityTimer?.cancel();
+    _crashStabilityTimer = null;
+    final generation = ++_crashRecoveryGeneration;
+    final recovery = _prepareCrashRecovery(
+      profile,
+      process.describeFailure(code),
+      generation,
+    );
+    _unexpectedExitRecovery = recovery;
+    unawaited(
+      recovery.whenComplete(() {
+        if (identical(_unexpectedExitRecovery, recovery)) {
+          _unexpectedExitRecovery = null;
+        }
+      }),
+    );
+  }
+
+  Future<void> _prepareCrashRecovery(
+    ConnectionProfile profile,
+    String message,
+    int generation,
+  ) async {
+    try {
+      await _cleanup();
+    } catch (_) {
+      if (!_disposed && !_stopping && generation == _crashRecoveryGeneration) {
+        _states.add(const ConnectionFailure('Mihomo 意外退出后的运行状态清理失败，请手动重连。'));
+      }
+      return;
+    } finally {
+      _handlingUnexpectedExit = false;
+    }
+    if (_disposed || _stopping || generation != _crashRecoveryGeneration) {
+      return;
+    }
+    _scheduleCrashRecovery(profile, message);
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     await stop();
     await _exitSubscription.cancel();
     await process.dispose();
