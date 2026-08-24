@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
+import '../../app/app_runtime_state.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 import '../../models/app_settings.dart';
+import '../../models/connection_models.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -15,6 +17,16 @@ class SettingsPage extends ConsumerWidget {
       runtimeControllerProvider.select((state) => state.settings),
     );
     final controller = ref.read(runtimeControllerProvider.notifier);
+    final coreUpdate = ref.watch(
+      runtimeControllerProvider.select((state) => state.coreUpdate),
+    );
+    final coreCanBeChanged = ref.watch(
+      runtimeControllerProvider.select(
+        (state) =>
+            state.connection is Disconnected ||
+            state.connection is ConnectionFailure,
+      ),
+    );
     final l10n = context.l10n;
     Future<void> save(AppSettings value) => controller.updateSettings(value);
 
@@ -322,11 +334,110 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+        Text(
+          l10n.coreUpdateTitle,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 4),
+        Text(l10n.coreUpdateSubtitle),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.coreCurrentVersion(
+                    coreUpdate.currentVersion.isEmpty
+                        ? l10n.coreVersionUnknown
+                        : coreUpdate.currentVersion,
+                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(_coreUpdateStatus(l10n, coreUpdate)),
+                if (!coreCanBeChanged &&
+                    (coreUpdate is CoreUpdateAvailable ||
+                        coreUpdate.canRollback)) ...[
+                  const SizedBox(height: 8),
+                  Text(l10n.coreUpdateDisconnectRequired),
+                ],
+                if (coreUpdate.busy) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                ],
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: coreUpdate.busy
+                          ? null
+                          : controller.checkCoreUpdate,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.coreCheckForUpdates),
+                    ),
+                    if (coreUpdate is CoreUpdateAvailable)
+                      FilledButton.icon(
+                        onPressed: coreCanBeChanged && !coreUpdate.busy
+                            ? controller.installCoreUpdate
+                            : null,
+                        icon: const Icon(Icons.system_update_alt_rounded),
+                        label: Text(l10n.coreDownloadInstall),
+                      ),
+                    if (coreUpdate.canRollback)
+                      OutlinedButton.icon(
+                        onPressed: coreCanBeChanged && !coreUpdate.busy
+                            ? controller.rollbackCoreUpdate
+                            : null,
+                        icon: const Icon(Icons.restore_rounded),
+                        label: Text(l10n.coreRollback),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.coreUpdateSecurityNote,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Text(l10n.settingsNextConnect),
       ],
     );
   }
 }
+
+String _coreUpdateStatus(AppLocalizations l10n, CoreUpdateState update) =>
+    switch (update) {
+      CoreUpdateIdle() => l10n.coreUpdateIdle,
+      CoreUpdateChecking() => l10n.coreChecking,
+      CoreUpdateAvailable(:final latestVersion) => l10n.coreUpdateAvailable(
+        latestVersion,
+      ),
+      CoreUpdateCurrent() => l10n.coreUpToDate,
+      CoreUpdateApplying(:final targetVersion, :final stage) => switch (stage) {
+        CoreUpdateApplyStage.downloading => l10n.coreDownloading(targetVersion),
+        CoreUpdateApplyStage.installing => l10n.coreInstalling(targetVersion),
+        CoreUpdateApplyStage.rollingBack => l10n.coreRollingBack,
+      },
+      CoreUpdateSucceeded(:final currentVersion, :final rolledBack) =>
+        rolledBack
+            ? l10n.coreRollbackSucceeded(currentVersion)
+            : l10n.coreUpdateSucceeded(currentVersion),
+      CoreUpdateFailed(:final reason) => switch (reason) {
+        CoreUpdateFailureReason.checkFailed => l10n.coreUpdateCheckFailed,
+        CoreUpdateFailureReason.applyFailed => l10n.coreUpdateApplyFailed,
+        CoreUpdateFailureReason.rollbackFailed => l10n.coreRollbackFailed,
+        CoreUpdateFailureReason.disconnectRequired =>
+          l10n.coreUpdateDisconnectRequired,
+      },
+    };
 
 class _IntegerSettingTile extends StatelessWidget {
   const _IntegerSettingTile({

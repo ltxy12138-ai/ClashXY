@@ -9,6 +9,7 @@ import '../core/errors/app_exception.dart';
 import '../core/mihomo/binary_manager.dart';
 import '../core/mihomo/config_manager.dart';
 import '../core/mihomo/connection_supervisor.dart';
+import '../core/mihomo/core_update_service.dart';
 import '../core/mihomo/health_checker.dart';
 import '../core/mihomo/mihomo_config_builder.dart';
 import '../core/mihomo/process_manager.dart';
@@ -40,6 +41,7 @@ import '../models/connection_models.dart';
 import '../models/panel_models.dart';
 import '../models/profile_models.dart';
 import '../platform/windows/flutter_asset_mihomo_binary_source.dart';
+import '../platform/windows/github_mihomo_release_source.dart';
 import '../platform/windows/windows_network_monitor.dart';
 import '../platform/windows/windows_power_monitor.dart';
 import '../platform/windows/windows_platform_vpn_service.dart';
@@ -65,16 +67,19 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     required this.profileImportService,
     required this.settingsStore,
     required this.startupRegistration,
+    MihomoReleaseSource? coreReleaseSource,
     NetworkMonitorFactory? networkMonitorFactory,
     SystemPowerMonitorFactory? systemPowerMonitorFactory,
   }) : networkMonitorFactory =
            networkMonitorFactory ?? _defaultNetworkMonitorFactory,
        systemPowerMonitorFactory =
            systemPowerMonitorFactory ?? _defaultSystemPowerMonitorFactory,
+       coreReleaseSource = coreReleaseSource ?? GitHubMihomoReleaseSource(),
        super(const AppRuntimeState());
 
   static const String _coreSha256 =
       'cf894375dbc00ab6708c1314ac35bbd29059f4c37f315353aaca7f1a9c566de6';
+  static const String _bundledCoreVersion = '1.19.30';
 
   final AppLogger logger;
   final SecureStorage secureStorage;
@@ -84,12 +89,16 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   final ProfileImportService profileImportService;
   final SettingsStore settingsStore;
   final StartupRegistration startupRegistration;
+  final MihomoReleaseSource coreReleaseSource;
   final NetworkMonitorFactory networkMonitorFactory;
   final SystemPowerMonitorFactory systemPowerMonitorFactory;
   final PanelSetupService _setup = const PanelSetupService();
 
   PanelConnector? _panel;
   ConnectionSupervisor? _engine;
+  BinaryManager? _binaryManager;
+  MihomoCoreUpdateService? _coreUpdater;
+  MihomoCoreRelease? _availableCoreRelease;
   StreamSubscription<AppConnectionState>? _connectionSubscription;
   StreamSubscription<TrafficSample>? _trafficSubscription;
   StreamSubscription<CoreLogEntry>? _logSubscription;
@@ -1243,6 +1252,172 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     }
   }
 
+  Future<void> checkCoreUpdate() async {
+    final updater = _coreUpdater;
+    final binary = _binaryManager;
+    if (updater == null || binary == null || state.coreUpdate.busy) return;
+    final current = state.coreUpdate.currentVersion;
+    final canRollback = state.coreUpdate.canRollback;
+    state = state.copyWith(
+      coreUpdate: CoreUpdateChecking(
+        currentVersion: current,
+        canRollback: canRollback,
+      ),
+    );
+    try {
+      final check = await updater.check();
+      _availableCoreRelease = check.updateAvailable ? check.latest : null;
+      state = state.copyWith(
+        coreUpdate: check.updateAvailable
+            ? CoreUpdateAvailable(
+                currentVersion: check.installed.version,
+                latestVersion: check.latest.version,
+                canRollback: check.canRollback,
+              )
+            : CoreUpdateCurrent(
+                currentVersion: check.installed.version,
+                canRollback: check.canRollback,
+              ),
+      );
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.warning,
+        'Mihomo core update check failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      state = state.copyWith(
+        coreUpdate: CoreUpdateFailed(
+          currentVersion: current,
+          canRollback: canRollback,
+          reason: CoreUpdateFailureReason.checkFailed,
+        ),
+      );
+    }
+  }
+
+  Future<void> installCoreUpdate() async {
+    final updater = _coreUpdater;
+    final release = _availableCoreRelease;
+    if (updater == null || release == null || state.coreUpdate.busy) return;
+    if (!_coreCanBeChanged) {
+      state = state.copyWith(
+        coreUpdate: CoreUpdateFailed(
+          currentVersion: state.coreUpdate.currentVersion,
+          canRollback: state.coreUpdate.canRollback,
+          reason: CoreUpdateFailureReason.disconnectRequired,
+        ),
+      );
+      return;
+    }
+    final currentVersion = state.coreUpdate.currentVersion;
+    final canRollback = state.coreUpdate.canRollback;
+    try {
+      await _engine?.stop();
+      final installed = await updater.install(
+        release,
+        onProgress: (stage) {
+          state = state.copyWith(
+            coreUpdate: CoreUpdateApplying(
+              currentVersion: currentVersion,
+              targetVersion: release.version,
+              canRollback: canRollback,
+              stage: switch (stage) {
+                MihomoCoreApplyStage.downloading =>
+                  CoreUpdateApplyStage.downloading,
+                MihomoCoreApplyStage.installing =>
+                  CoreUpdateApplyStage.installing,
+              },
+            ),
+          );
+        },
+      );
+      _availableCoreRelease = null;
+      state = state.copyWith(
+        coreUpdate: CoreUpdateSucceeded(
+          currentVersion: installed.version,
+          canRollback: await updater.binary.canRollback(installed: installed),
+          rolledBack: false,
+        ),
+      );
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.error,
+        'Mihomo core update failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      state = state.copyWith(
+        coreUpdate: CoreUpdateFailed(
+          currentVersion: currentVersion,
+          canRollback: await _safeCanRollback(),
+          reason: CoreUpdateFailureReason.applyFailed,
+        ),
+      );
+    }
+  }
+
+  Future<void> rollbackCoreUpdate() async {
+    final updater = _coreUpdater;
+    if (updater == null || state.coreUpdate.busy) return;
+    if (!_coreCanBeChanged) {
+      state = state.copyWith(
+        coreUpdate: CoreUpdateFailed(
+          currentVersion: state.coreUpdate.currentVersion,
+          canRollback: state.coreUpdate.canRollback,
+          reason: CoreUpdateFailureReason.disconnectRequired,
+        ),
+      );
+      return;
+    }
+    final currentVersion = state.coreUpdate.currentVersion;
+    state = state.copyWith(
+      coreUpdate: CoreUpdateApplying(
+        currentVersion: currentVersion,
+        targetVersion: '',
+        canRollback: state.coreUpdate.canRollback,
+        stage: CoreUpdateApplyStage.rollingBack,
+      ),
+    );
+    try {
+      await _engine?.stop();
+      final installed = await updater.rollback();
+      _availableCoreRelease = null;
+      state = state.copyWith(
+        coreUpdate: CoreUpdateSucceeded(
+          currentVersion: installed.version,
+          canRollback: await updater.binary.canRollback(installed: installed),
+          rolledBack: true,
+        ),
+      );
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.error,
+        'Mihomo core rollback failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      state = state.copyWith(
+        coreUpdate: CoreUpdateFailed(
+          currentVersion: currentVersion,
+          canRollback: await _safeCanRollback(),
+          reason: CoreUpdateFailureReason.rollbackFailed,
+        ),
+      );
+    }
+  }
+
+  bool get _coreCanBeChanged =>
+      state.connection is Disconnected || state.connection is ConnectionFailure;
+
+  Future<bool> _safeCanRollback() async {
+    try {
+      return await _binaryManager?.canRollback() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> updateSettings(AppSettings settings) async {
     try {
       if (settings.launchAtStartup != state.settings.launchAtStartup) {
@@ -1286,6 +1461,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       supportDirectory: support,
       source: const FlutterAssetMihomoBinarySource(),
       expectedSha256: _coreSha256,
+      bundledVersion: _bundledCoreVersion,
     );
     try {
       await platform.cleanupStaleNetworkState(
@@ -1300,6 +1476,19 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
         stackTrace: stackTrace,
       );
     }
+    final installedCore = await binary.inspect();
+    _binaryManager = binary;
+    _coreUpdater = MihomoCoreUpdateService(
+      binary: binary,
+      releaseSource: coreReleaseSource,
+    );
+    _availableCoreRelease = null;
+    state = state.copyWith(
+      coreUpdate: CoreUpdateIdle(
+        currentVersion: installedCore.version,
+        canRollback: await binary.canRollback(installed: installedCore),
+      ),
+    );
     final configManager = ConfigManager(
       supportDirectory: support,
       builder: MihomoConfigBuilder(),
@@ -1383,6 +1572,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     unawaited(_trafficSubscription?.cancel());
     unawaited(_logSubscription?.cancel());
     unawaited(_engine?.dispose());
+    coreReleaseSource.dispose();
     super.dispose();
   }
 }

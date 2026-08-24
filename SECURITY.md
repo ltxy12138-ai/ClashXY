@@ -24,6 +24,10 @@ public disclosure.
 - API tokens and complete profiles use Windows DPAPI-backed secure storage.
 - Runtime configuration is ACL-restricted and deleted after Mihomo loads it.
 - The bundled Mihomo binary is checked against a pinned SHA-256 before use.
+- Core updates accept only the official stable MetaCubeX/mihomo Windows x64
+  compatible asset over HTTPS with the GitHub Release SHA-256 digest. The
+  executable is staged, rehashed, version-probed, and retains a verified
+  rollback copy before switching.
 - The controller binds to loopback and uses a randomly generated secret.
 - Logs pass through secret redaction.
 - Exported profiles are explicitly treated as sensitive.

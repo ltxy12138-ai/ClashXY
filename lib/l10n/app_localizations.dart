@@ -1544,6 +1544,132 @@ abstract class AppLocalizations {
   /// **'Enable protocol sniffer'**
   String get snifferEnabled;
 
+  /// No description provided for @coreUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mihomo Core update'**
+  String get coreUpdateTitle;
+
+  /// No description provided for @coreUpdateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Checks the official stable MetaCubeX/mihomo Windows x64 compatible release.'**
+  String get coreUpdateSubtitle;
+
+  /// No description provided for @coreCurrentVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed version: {version}'**
+  String coreCurrentVersion(String version);
+
+  /// No description provided for @coreVersionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown'**
+  String get coreVersionUnknown;
+
+  /// No description provided for @coreUpdateIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for a verified Core update when you are ready.'**
+  String get coreUpdateIdle;
+
+  /// No description provided for @coreCheckForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get coreCheckForUpdates;
+
+  /// No description provided for @coreChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the official release…'**
+  String get coreChecking;
+
+  /// No description provided for @coreUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified version {version} is available.'**
+  String coreUpdateAvailable(String version);
+
+  /// No description provided for @coreUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'The installed Core is up to date.'**
+  String get coreUpToDate;
+
+  /// No description provided for @coreDownloadInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download and install'**
+  String get coreDownloadInstall;
+
+  /// No description provided for @coreDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading verified version {version}…'**
+  String coreDownloading(String version);
+
+  /// No description provided for @coreInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Validating and switching to version {version}…'**
+  String coreInstalling(String version);
+
+  /// No description provided for @coreUpdateSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Core version {version} was installed. The previous version is available for rollback.'**
+  String coreUpdateSucceeded(String version);
+
+  /// No description provided for @coreRollback.
+  ///
+  /// In en, this message translates to:
+  /// **'Roll back'**
+  String get coreRollback;
+
+  /// No description provided for @coreRollingBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Validating and restoring the previous Core…'**
+  String get coreRollingBack;
+
+  /// No description provided for @coreRollbackSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolled back to Core version {version}.'**
+  String coreRollbackSucceeded(String version);
+
+  /// No description provided for @coreUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not check the official Mihomo release.'**
+  String get coreUpdateCheckFailed;
+
+  /// No description provided for @coreUpdateApplyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Core update failed. The installed version was preserved or restored.'**
+  String get coreUpdateApplyFailed;
+
+  /// No description provided for @coreRollbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Core rollback failed. The installed version was preserved.'**
+  String get coreRollbackFailed;
+
+  /// No description provided for @coreUpdateDisconnectRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect the VPN before installing or rolling back the Core.'**
+  String get coreUpdateDisconnectRequired;
+
+  /// No description provided for @coreUpdateSecurityNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Only HTTPS release metadata and assets with an official SHA-256 digest are accepted. Switching is staged and retains one verified previous version.'**
+  String get coreUpdateSecurityNote;
+
   /// No description provided for @runtimeTokenMissing.
   ///
   /// In en, this message translates to:

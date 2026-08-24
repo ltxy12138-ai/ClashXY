@@ -117,6 +117,11 @@ ConnectionSupervisor
 └── ControllerClient
 ```
 
+Core 更新链路保持同样的依赖方向：`MihomoCoreUpdateService` 负责版本比较、归档
+校验和事务编排，Windows GitHub Release Adapter 负责受限 HTTPS 下载，
+`BinaryManager` 负责暂存、版本探测、切换、启动恢复和单版本回滚。更新器不得直接
+覆盖正在运行的 Core，也不得在缺少官方 SHA-256 时降级为仅信任 HTTPS。
+
 ControllerClient 提供：
 
 - status / configs

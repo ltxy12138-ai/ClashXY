@@ -20,6 +20,12 @@ its documented loopback REST API. No changes are made to its source in this
 repository. Recipients can obtain the exact release source from the release link
 above at no charge.
 
+The optional in-app updater retrieves the official stable
+`mihomo-windows-amd64-compatible` ZIP from the same upstream GitHub repository,
+requires the SHA-256 digest published by the GitHub Release API, and keeps the
+previous verified executable for rollback. An updated Core remains under the
+same upstream GPL-3.0 license.
+
 The upstream v1.19.30 README additionally asks projects unaffiliated with
 MetaCubeX not to contain the word `mihomo` in their names. The ClashXY product
 name follows that request.

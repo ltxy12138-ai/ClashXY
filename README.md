@@ -26,7 +26,8 @@ or 2S-UI.
 - Windows system tray, close-to-tray, single-instance activation, hidden startup,
   and real per-user startup registration
 - Windows DPAPI-backed secure storage for tokens and complete proxy profiles
-- checksum verification for the bundled Mihomo core
+- checksum verification for the bundled Mihomo core, plus official stable Core
+  update checks with staged switching and one-version rollback
 
 ## Privacy and security
 

@@ -857,6 +857,88 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snifferEnabled => 'Enable protocol sniffer';
 
   @override
+  String get coreUpdateTitle => 'Mihomo Core update';
+
+  @override
+  String get coreUpdateSubtitle =>
+      'Checks the official stable MetaCubeX/mihomo Windows x64 compatible release.';
+
+  @override
+  String coreCurrentVersion(String version) {
+    return 'Installed version: $version';
+  }
+
+  @override
+  String get coreVersionUnknown => 'unknown';
+
+  @override
+  String get coreUpdateIdle =>
+      'Check for a verified Core update when you are ready.';
+
+  @override
+  String get coreCheckForUpdates => 'Check for updates';
+
+  @override
+  String get coreChecking => 'Checking the official release…';
+
+  @override
+  String coreUpdateAvailable(String version) {
+    return 'Verified version $version is available.';
+  }
+
+  @override
+  String get coreUpToDate => 'The installed Core is up to date.';
+
+  @override
+  String get coreDownloadInstall => 'Download and install';
+
+  @override
+  String coreDownloading(String version) {
+    return 'Downloading verified version $version…';
+  }
+
+  @override
+  String coreInstalling(String version) {
+    return 'Validating and switching to version $version…';
+  }
+
+  @override
+  String coreUpdateSucceeded(String version) {
+    return 'Core version $version was installed. The previous version is available for rollback.';
+  }
+
+  @override
+  String get coreRollback => 'Roll back';
+
+  @override
+  String get coreRollingBack => 'Validating and restoring the previous Core…';
+
+  @override
+  String coreRollbackSucceeded(String version) {
+    return 'Rolled back to Core version $version.';
+  }
+
+  @override
+  String get coreUpdateCheckFailed =>
+      'Could not check the official Mihomo release.';
+
+  @override
+  String get coreUpdateApplyFailed =>
+      'Core update failed. The installed version was preserved or restored.';
+
+  @override
+  String get coreRollbackFailed =>
+      'Core rollback failed. The installed version was preserved.';
+
+  @override
+  String get coreUpdateDisconnectRequired =>
+      'Disconnect the VPN before installing or rolling back the Core.';
+
+  @override
+  String get coreUpdateSecurityNote =>
+      'Only HTTPS release metadata and assets with an official SHA-256 digest are accepted. Switching is staged and retains one verified previous version.';
+
+  @override
   String get runtimeTokenMissing =>
       'The saved 2S-UI token is missing. Sign in to the panel again.';
 
