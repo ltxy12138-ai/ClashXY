@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Flutter = 'flutter'
+    [string]$Flutter = 'flutter',
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,9 +13,11 @@ if ($null -eq $versionLine) {
 }
 $version = $versionLine.Matches[0].Groups[1].Value -replace '\+', '-build'
 
-& $Flutter build windows --release
-if ($LASTEXITCODE -ne 0) {
-    throw "Flutter Windows build failed with exit code $LASTEXITCODE."
+if (-not $SkipBuild) {
+    & $Flutter build windows --release
+    if ($LASTEXITCODE -ne 0) {
+        throw "Flutter Windows build failed with exit code $LASTEXITCODE."
+    }
 }
 
 $release = Join-Path $repository 'build\windows\x64\runner\Release'

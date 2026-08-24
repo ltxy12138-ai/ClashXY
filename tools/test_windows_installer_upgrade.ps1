@@ -2,7 +2,8 @@
 param(
     [string]$OldPortableZip = (Join-Path $PSScriptRoot '..\dist\ClashXY-Windows-x64-1.9.0-build14.zip'),
     [string]$NewInstaller,
-    [string]$Iscc
+    [string]$Iscc,
+    [switch]$InstallOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,17 +16,22 @@ if ($null -eq $versionLine) {
 $newVersion = $versionLine.Matches[0].Groups[1].Value
 $newBuild = $versionLine.Matches[0].Groups[2].Value
 
-$oldArchive = [System.IO.Path]::GetFullPath($OldPortableZip)
-if (-not (Test-Path -LiteralPath $oldArchive)) {
-    throw "Old portable archive was not found: $oldArchive"
+$oldArchive = $null
+$oldVersion = $null
+$oldBuild = $null
+if (-not $InstallOnly) {
+    $oldArchive = [System.IO.Path]::GetFullPath($OldPortableZip)
+    if (-not (Test-Path -LiteralPath $oldArchive)) {
+        throw "Old portable archive was not found: $oldArchive"
+    }
+    $oldName = [System.IO.Path]::GetFileName($oldArchive)
+    $oldMatch = [regex]::Match($oldName, '^ClashXY-Windows-x64-(\d+\.\d+\.\d+)-build(\d+)\.zip$')
+    if (-not $oldMatch.Success) {
+        throw 'Old portable archive name must be ClashXY-Windows-x64-<version>-build<build>.zip.'
+    }
+    $oldVersion = $oldMatch.Groups[1].Value
+    $oldBuild = $oldMatch.Groups[2].Value
 }
-$oldName = [System.IO.Path]::GetFileName($oldArchive)
-$oldMatch = [regex]::Match($oldName, '^ClashXY-Windows-x64-(\d+\.\d+\.\d+)-build(\d+)\.zip$')
-if (-not $oldMatch.Success) {
-    throw 'Old portable archive name must be ClashXY-Windows-x64-<version>-build<build>.zip.'
-}
-$oldVersion = $oldMatch.Groups[1].Value
-$oldBuild = $oldMatch.Groups[2].Value
 
 if ([string]::IsNullOrWhiteSpace($NewInstaller)) {
     $NewInstaller = Join-Path $repository "dist\ClashXY-Setup-x64-$newVersion-build$newBuild.exe"
@@ -35,7 +41,7 @@ if (-not (Test-Path -LiteralPath $newInstallerPath)) {
     throw "New installer was not found: $newInstallerPath"
 }
 
-if ([string]::IsNullOrWhiteSpace($Iscc)) {
+if (-not $InstallOnly -and [string]::IsNullOrWhiteSpace($Iscc)) {
     $candidates = @(
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
         (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
@@ -43,7 +49,7 @@ if ([string]::IsNullOrWhiteSpace($Iscc)) {
     ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
     $Iscc = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 }
-if ([string]::IsNullOrWhiteSpace($Iscc) -or -not (Test-Path -LiteralPath $Iscc)) {
+if (-not $InstallOnly -and ([string]::IsNullOrWhiteSpace($Iscc) -or -not (Test-Path -LiteralPath $Iscc))) {
     throw 'Inno Setup 6 compiler was not found.'
 }
 
@@ -113,35 +119,38 @@ $uninstaller = Join-Path $installDirectory 'unins000.exe'
 $uninstalled = $false
 
 try {
-    Expand-Archive -LiteralPath $oldArchive -DestinationPath $oldPackage
-    $oldSource = Join-Path $oldPackage 'ClashXY'
-    if (-not (Test-Path -LiteralPath (Join-Path $oldSource 'ClashXY.exe'))) {
-        throw 'Old portable archive does not contain ClashXY/ClashXY.exe.'
-    }
-
-    & ([System.IO.Path]::GetFullPath($Iscc)) @(
-        '/Qp',
-        "/DAppVersion=$oldVersion",
-        "/DAppBuild=$oldBuild",
-        "/DSourceDir=$oldSource",
-        "/DOutputDir=$oldOutput",
-        (Join-Path $repository 'installer\ClashXY.iss')
-    )
-    if ($LASTEXITCODE -ne 0) {
-        throw "Old installer compilation failed with exit code $LASTEXITCODE."
-    }
-
-    $oldInstaller = Join-Path $oldOutput "ClashXY-Setup-x64-$oldVersion-build$oldBuild.exe"
-    Invoke-HiddenProcess -FilePath $oldInstaller -ArgumentList @(
-        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
-        ('/DIR="{0}"' -f $installDirectory),
-        ('/LOG="{0}"' -f (Join-Path $testRoot 'install-old.log'))
-    )
-
     $installedExecutable = Join-Path $installDirectory 'ClashXY.exe'
-    $installedOldVersion = (Get-Item -LiteralPath $installedExecutable).VersionInfo.ProductVersion.Trim()
-    if ($installedOldVersion -ne "$oldVersion+$oldBuild") {
-        throw "Old install version mismatch: $installedOldVersion"
+    $installedOldVersion = $null
+    if (-not $InstallOnly) {
+        Expand-Archive -LiteralPath $oldArchive -DestinationPath $oldPackage
+        $oldSource = Join-Path $oldPackage 'ClashXY'
+        if (-not (Test-Path -LiteralPath (Join-Path $oldSource 'ClashXY.exe'))) {
+            throw 'Old portable archive does not contain ClashXY/ClashXY.exe.'
+        }
+
+        & ([System.IO.Path]::GetFullPath($Iscc)) @(
+            '/Qp',
+            "/DAppVersion=$oldVersion",
+            "/DAppBuild=$oldBuild",
+            "/DSourceDir=$oldSource",
+            "/DOutputDir=$oldOutput",
+            (Join-Path $repository 'installer\ClashXY.iss')
+        )
+        if ($LASTEXITCODE -ne 0) {
+            throw "Old installer compilation failed with exit code $LASTEXITCODE."
+        }
+
+        $oldInstaller = Join-Path $oldOutput "ClashXY-Setup-x64-$oldVersion-build$oldBuild.exe"
+        Invoke-HiddenProcess -FilePath $oldInstaller -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
+            ('/DIR="{0}"' -f $installDirectory),
+            ('/LOG="{0}"' -f (Join-Path $testRoot 'install-old.log'))
+        )
+
+        $installedOldVersion = (Get-Item -LiteralPath $installedExecutable).VersionInfo.ProductVersion.Trim()
+        if ($installedOldVersion -ne "$oldVersion+$oldBuild") {
+            throw "Old install version mismatch: $installedOldVersion"
+        }
     }
 
     Invoke-HiddenProcess -FilePath $newInstallerPath -ArgumentList @(
@@ -174,6 +183,7 @@ try {
 
     [pscustomobject]@{
         TestRoot              = $testRoot
+        Mode                  = $(if ($InstallOnly) { 'install' } else { 'upgrade' })
         OldProductVersion     = $installedOldVersion
         NewProductVersion     = $installedNewVersion
         AppDataFilesPreserved = $before.Count
