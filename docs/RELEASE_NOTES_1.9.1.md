@@ -40,7 +40,7 @@ The bundled unmodified Mihomo core is v1.19.30 Windows x64 compatible:
 - Installer migration: `1.9.0+14` to `1.9.1+15`; existing application data
   hashes unchanged; uninstall cleanup verified.
 - GitHub/Sigstore provenance: both binaries verify against the public repository,
-  main-branch workflow, and source commit `70ba5e7` from run `32709049780`.
+  main-branch release workflow, and tagged source commit.
 
 ## Publication gates
 
