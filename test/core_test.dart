@@ -5,6 +5,7 @@ import 'package:clashxy/core/mihomo/mihomo_config_builder.dart';
 import 'package:clashxy/core/mihomo/process_manager.dart';
 import 'package:clashxy/core/panel/two_sui_http_client.dart';
 import 'package:clashxy/core/provisioning/credential_generator.dart';
+import 'package:clashxy/core/provisioning/device_identity_service.dart';
 import 'package:clashxy/core/provisioning/inbound_selector.dart';
 import 'package:clashxy/core/provisioning/profile_factory.dart';
 import 'package:clashxy/core/provisioning/profile_validator.dart';
@@ -106,6 +107,22 @@ void main() {
 
   group('provisioning', () {
     const factory = ProfileFactory();
+
+    test('keeps a human display name separate from the client ID', () {
+      expect(
+        resolveManagedDeviceDisplayName(
+          '  上海办公电脑  ',
+          'clashxy-pc-bba5df2d6b3a',
+        ),
+        '上海办公电脑',
+      );
+    });
+
+    test('falls back to the client ID when no display name is supplied', () {
+      const clientId = 'clashxy-pc-bba5df2d6b3a';
+      expect(resolveManagedDeviceDisplayName(null, clientId), clientId);
+      expect(resolveManagedDeviceDisplayName('   ', clientId), clientId);
+    });
 
     test('parses and validates VLESS REALITY', () {
       final profile = factory.parseLink(

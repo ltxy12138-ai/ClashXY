@@ -683,6 +683,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createLocalDevice => 'Create local device';
 
   @override
+  String get deviceDisplayName => 'Device display name';
+
+  @override
+  String get deviceDisplayNameHint => 'For example: Shanghai office PC';
+
+  @override
+  String get deviceDisplayNameValidation => 'Enter a device display name.';
+
+  @override
+  String get machineIdentityNote =>
+      'ClashXY generates a separate stable machine ID for 2S-UI compatibility. Renaming this label will not change that identity.';
+
+  @override
   String get remoteClients => 'Remote clients';
 
   @override

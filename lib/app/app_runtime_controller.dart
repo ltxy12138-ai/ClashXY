@@ -25,6 +25,8 @@ import '../core/provisioning/provisioning_service.dart';
 import '../core/provisioning/remote_client_provisioner.dart';
 import '../core/provisioning/rollback_coordinator.dart';
 import '../core/runtime/async_operation_gate.dart';
+import '../core/runtime/network_monitor.dart';
+import '../core/runtime/network_recovery_policy.dart';
 import '../core/security/app_logger.dart';
 import '../core/storage/drift_profile_store.dart';
 import '../core/storage/panel_store.dart';
@@ -37,10 +39,16 @@ import '../models/connection_models.dart';
 import '../models/panel_models.dart';
 import '../models/profile_models.dart';
 import '../platform/windows/flutter_asset_mihomo_binary_source.dart';
+import '../platform/windows/windows_network_monitor.dart';
 import '../platform/windows/windows_platform_vpn_service.dart';
 import '../platform/windows/windows_startup_registration.dart';
 import 'app_runtime_state.dart';
 import 'app_runtime_message.dart';
+
+typedef NetworkMonitorFactory = NetworkMonitor Function(AppSettings settings);
+
+NetworkMonitor _defaultNetworkMonitorFactory(AppSettings settings) =>
+    WindowsNetworkMonitor(excludedInterfaceNames: <String>[settings.tunDevice]);
 
 class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   AppRuntimeController({
@@ -52,7 +60,10 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     required this.profileImportService,
     required this.settingsStore,
     required this.startupRegistration,
-  }) : super(const AppRuntimeState());
+    NetworkMonitorFactory? networkMonitorFactory,
+  }) : networkMonitorFactory =
+           networkMonitorFactory ?? _defaultNetworkMonitorFactory,
+       super(const AppRuntimeState());
 
   static const String _coreSha256 =
       'cf894375dbc00ab6708c1314ac35bbd29059f4c37f315353aaca7f1a9c566de6';
@@ -65,6 +76,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   final ProfileImportService profileImportService;
   final SettingsStore settingsStore;
   final StartupRegistration startupRegistration;
+  final NetworkMonitorFactory networkMonitorFactory;
   final PanelSetupService _setup = const PanelSetupService();
 
   PanelConnector? _panel;
@@ -72,9 +84,15 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   StreamSubscription<AppConnectionState>? _connectionSubscription;
   StreamSubscription<TrafficSample>? _trafficSubscription;
   StreamSubscription<CoreLogEntry>? _logSubscription;
+  NetworkMonitor? _networkMonitor;
+  StreamSubscription<NetworkSnapshot>? _networkSubscription;
   Timer? _subscriptionRefreshTimer;
+  Timer? _networkRecoveryTimer;
   bool _checkingSubscriptions = false;
   bool _refreshingConnections = false;
+  bool _networkAvailable = true;
+  int _networkGeneration = 0;
+  DateTime? _lastConnectedSince;
   final AsyncOperationGate _connectionGate = AsyncOperationGate();
 
   Future<void> initialize() async {
@@ -95,6 +113,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
         );
       }
       await _createEngine(settings);
+      await _startNetworkMonitoring(settings);
       final panels = await panelStore.list();
       final profiles = await _listProfiles();
       final devices = await profileStore.listDevices();
@@ -139,7 +158,14 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       );
       if (connectedPanel != null) await refreshRemote();
       if (settings.autoConnect && profiles.isNotEmpty) {
-        await connect(profiles.first);
+        if (_networkAvailable) {
+          await connect(profiles.first);
+        } else {
+          state = state.copyWith(
+            activeProfileId: profiles.first.id,
+            connection: const WaitingForNetwork(),
+          );
+        }
       }
       _startSubscriptionRefreshTimer();
       unawaited(_refreshDueSubscriptions());
@@ -362,6 +388,103 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     );
   }
 
+  Future<void> _startNetworkMonitoring(AppSettings settings) async {
+    _networkRecoveryTimer?.cancel();
+    _networkGeneration++;
+    await _networkSubscription?.cancel();
+    await _networkMonitor?.dispose();
+    final monitor = networkMonitorFactory(settings);
+    _networkMonitor = monitor;
+    _networkSubscription = monitor.changes.listen(_handleNetworkChange);
+    await monitor.start();
+    _networkAvailable = monitor.current?.available ?? true;
+  }
+
+  void _handleNetworkChange(NetworkSnapshot snapshot) {
+    _networkAvailable = snapshot.available;
+    final connection = state.connection;
+    final activeProfileId = state.activeProfileId;
+    if (activeProfileId == null ||
+        connection is Disconnected ||
+        connection is ConnectionFailure ||
+        connection is Stopping ||
+        connection is Connecting) {
+      return;
+    }
+    final generation = ++_networkGeneration;
+    _networkRecoveryTimer?.cancel();
+    if (!snapshot.available) {
+      state = state.copyWith(connection: const WaitingForNetwork());
+      return;
+    }
+    if (connection is WaitingForNetwork) {
+      state = state.copyWith(connection: const Reconnecting(attempt: 1));
+    }
+    _networkRecoveryTimer = Timer(
+      const Duration(seconds: 2),
+      () => unawaited(_recoverAfterNetworkChange(generation)),
+    );
+  }
+
+  Future<void> _recoverAfterNetworkChange(int generation) async {
+    if (generation != _networkGeneration || !_networkAvailable) return;
+    final profileId = state.activeProfileId;
+    final engine = _engine;
+    if (profileId == null || engine == null) return;
+    final profile = state.profiles
+        .where((candidate) => candidate.id == profileId)
+        .firstOrNull;
+    if (profile == null) return;
+    if (_lastConnectedSince == null) {
+      state = state.copyWith(connection: const Reconnecting(attempt: 1));
+      await connect(profile);
+      return;
+    }
+
+    HealthReport? report;
+    try {
+      report = await engine.healthReport().timeout(const Duration(seconds: 10));
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.warning,
+        'Network-change health check failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (generation != _networkGeneration || !_networkAvailable) return;
+    switch (decideNetworkRecovery(report)) {
+      case NetworkRecoveryAction.waitForNetwork:
+        state = state.copyWith(connection: const WaitingForNetwork());
+        _networkRecoveryTimer = Timer(
+          const Duration(seconds: 5),
+          () => unawaited(_recoverAfterNetworkChange(generation)),
+        );
+        return;
+      case NetworkRecoveryAction.restore:
+        if (state.connection is WaitingForNetwork ||
+            state.connection is Reconnecting) {
+          state = state.copyWith(
+            connection: Connected(
+              since: _lastConnectedSince ?? DateTime.now().toUtc(),
+            ),
+          );
+        }
+        unawaited(refreshClashData());
+        return;
+      case NetworkRecoveryAction.reconnect:
+        break;
+    }
+    state = state.copyWith(connection: const Reconnecting(attempt: 1));
+    await connect(profile);
+  }
+
+  void _cancelPendingNetworkRecovery() {
+    _networkRecoveryTimer?.cancel();
+    _networkRecoveryTimer = null;
+    _networkGeneration++;
+  }
+
   Future<void> _refreshDueSubscriptions() async {
     if (_checkingSubscriptions) return;
     _checkingSubscriptions = true;
@@ -513,7 +636,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     }
   }
 
-  Future<void> provisionAndConnect() async {
+  Future<void> provisionAndConnect({String? displayName}) async {
     final panel = _panel;
     if (panel == null) {
       state = state.copyWith(
@@ -544,7 +667,10 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       panelId: state.panel!.id,
     );
     try {
-      final profile = await service.provision(preference: _preference());
+      final profile = await service.provision(
+        preference: _preference(),
+        displayName: displayName,
+      );
       await _reloadLocal();
       state = state.copyWith(
         busy: false,
@@ -571,6 +697,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   }
 
   Future<void> connect([ConnectionProfile? selected]) async {
+    _cancelPendingNetworkRecovery();
     await _connectionGate.run(() async {
       final profile = selected ?? state.profiles.firstOrNull;
       final engine = _engine;
@@ -600,6 +727,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   }
 
   Future<void> disconnect() async {
+    _cancelPendingNetworkRecovery();
     await _connectionGate.run(() async {
       await _engine?.stop();
     });
@@ -1035,7 +1163,10 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       }
       await settingsStore.save(settings);
       state = state.copyWith(settings: settings);
-      if (state.connection is Disconnected) await _createEngine(settings);
+      if (state.connection is Disconnected) {
+        await _createEngine(settings);
+        await _startNetworkMonitoring(settings);
+      }
     } catch (error) {
       state = state.copyWith(
         message: _runtimeError(RuntimeMessageCode.startupUpdateFailed, error),
@@ -1084,10 +1215,12 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     _engine = engine;
     _connectionSubscription = engine.states.listen((connection) {
       state = state.copyWith(connection: connection);
-      if (connection is Connected) {
+      if (connection case Connected(:final since)) {
+        _lastConnectedSince = since;
         unawaited(refreshClashData());
       } else if (connection is Disconnected ||
           connection is ConnectionFailure) {
+        _lastConnectedSince = null;
         state = state.copyWith(
           traffic: null,
           delay: null,
@@ -1139,6 +1272,9 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   @override
   void dispose() {
     _subscriptionRefreshTimer?.cancel();
+    _networkRecoveryTimer?.cancel();
+    unawaited(_networkSubscription?.cancel());
+    unawaited(_networkMonitor?.dispose());
     unawaited(_connectionSubscription?.cancel());
     unawaited(_trafficSubscription?.cancel());
     unawaited(_logSubscription?.cancel());

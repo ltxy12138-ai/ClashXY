@@ -3,6 +3,11 @@ import 'dart:math';
 
 import '../storage/secure_storage.dart';
 
+String resolveManagedDeviceDisplayName(String? requested, String clientId) {
+  final normalized = requested?.trim() ?? '';
+  return normalized.isEmpty ? clientId : normalized;
+}
+
 class DeviceIdentityService {
   DeviceIdentityService(this._storage, {Random? random})
     : _random = random ?? Random.secure();
