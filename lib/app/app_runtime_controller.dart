@@ -27,6 +27,7 @@ import '../core/provisioning/rollback_coordinator.dart';
 import '../core/runtime/async_operation_gate.dart';
 import '../core/runtime/network_monitor.dart';
 import '../core/runtime/network_recovery_policy.dart';
+import '../core/runtime/system_power_monitor.dart';
 import '../core/security/app_logger.dart';
 import '../core/storage/drift_profile_store.dart';
 import '../core/storage/panel_store.dart';
@@ -40,15 +41,19 @@ import '../models/panel_models.dart';
 import '../models/profile_models.dart';
 import '../platform/windows/flutter_asset_mihomo_binary_source.dart';
 import '../platform/windows/windows_network_monitor.dart';
+import '../platform/windows/windows_power_monitor.dart';
 import '../platform/windows/windows_platform_vpn_service.dart';
 import '../platform/windows/windows_startup_registration.dart';
 import 'app_runtime_state.dart';
 import 'app_runtime_message.dart';
 
 typedef NetworkMonitorFactory = NetworkMonitor Function(AppSettings settings);
+typedef SystemPowerMonitorFactory = SystemPowerMonitor Function();
 
 NetworkMonitor _defaultNetworkMonitorFactory(AppSettings settings) =>
     WindowsNetworkMonitor(excludedInterfaceNames: <String>[settings.tunDevice]);
+
+SystemPowerMonitor _defaultSystemPowerMonitorFactory() => WindowsPowerMonitor();
 
 class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   AppRuntimeController({
@@ -61,8 +66,11 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     required this.settingsStore,
     required this.startupRegistration,
     NetworkMonitorFactory? networkMonitorFactory,
+    SystemPowerMonitorFactory? systemPowerMonitorFactory,
   }) : networkMonitorFactory =
            networkMonitorFactory ?? _defaultNetworkMonitorFactory,
+       systemPowerMonitorFactory =
+           systemPowerMonitorFactory ?? _defaultSystemPowerMonitorFactory,
        super(const AppRuntimeState());
 
   static const String _coreSha256 =
@@ -77,6 +85,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   final SettingsStore settingsStore;
   final StartupRegistration startupRegistration;
   final NetworkMonitorFactory networkMonitorFactory;
+  final SystemPowerMonitorFactory systemPowerMonitorFactory;
   final PanelSetupService _setup = const PanelSetupService();
 
   PanelConnector? _panel;
@@ -86,11 +95,15 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   StreamSubscription<CoreLogEntry>? _logSubscription;
   NetworkMonitor? _networkMonitor;
   StreamSubscription<NetworkSnapshot>? _networkSubscription;
+  SystemPowerMonitor? _systemPowerMonitor;
+  StreamSubscription<SystemPowerEvent>? _systemPowerSubscription;
   Timer? _subscriptionRefreshTimer;
   Timer? _networkRecoveryTimer;
   bool _checkingSubscriptions = false;
   bool _refreshingConnections = false;
   bool _networkAvailable = true;
+  bool _suspended = false;
+  String? _suspendedProfileId;
   int _networkGeneration = 0;
   DateTime? _lastConnectedSince;
   final AsyncOperationGate _connectionGate = AsyncOperationGate();
@@ -114,6 +127,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       }
       await _createEngine(settings);
       await _startNetworkMonitoring(settings);
+      await _startSystemPowerMonitoring();
       final panels = await panelStore.list();
       final profiles = await _listProfiles();
       final devices = await profileStore.listDevices();
@@ -400,8 +414,75 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     _networkAvailable = monitor.current?.available ?? true;
   }
 
+  Future<void> _startSystemPowerMonitoring() async {
+    await _systemPowerSubscription?.cancel();
+    await _systemPowerMonitor?.dispose();
+    final monitor = systemPowerMonitorFactory();
+    _systemPowerMonitor = monitor;
+    _systemPowerSubscription = monitor.events.listen(_handleSystemPowerEvent);
+    await monitor.start();
+  }
+
+  void _handleSystemPowerEvent(SystemPowerEvent event) {
+    switch (event) {
+      case SystemPowerEvent.suspend:
+        _suspended = true;
+        _suspendedProfileId = state.activeProfileId;
+        _networkRecoveryTimer?.cancel();
+        _networkGeneration++;
+        if (state.activeProfileId != null &&
+            state.connection is! Disconnected &&
+            state.connection is! ConnectionFailure &&
+            state.connection is! Stopping) {
+          state = state.copyWith(connection: const WaitingForNetwork());
+        }
+        return;
+      case SystemPowerEvent.resume:
+        _suspended = false;
+        unawaited(_scheduleResumeRecovery());
+    }
+  }
+
+  Future<void> _scheduleResumeRecovery() async {
+    try {
+      await _networkMonitor?.checkNow();
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.warning,
+        'Post-resume network check failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (_suspended) return;
+    _networkAvailable =
+        _networkMonitor?.current?.available ?? _networkAvailable;
+    final profileId = state.activeProfileId ?? _suspendedProfileId;
+    if (profileId == null || state.connection is Stopping) {
+      return;
+    }
+    final generation = ++_networkGeneration;
+    _networkRecoveryTimer?.cancel();
+    if (!_networkAvailable) {
+      state = state.copyWith(
+        activeProfileId: profileId,
+        connection: const WaitingForNetwork(),
+      );
+      return;
+    }
+    state = state.copyWith(
+      activeProfileId: profileId,
+      connection: const Reconnecting(attempt: 1),
+    );
+    _networkRecoveryTimer = Timer(
+      const Duration(seconds: 3),
+      () => unawaited(_recoverAfterNetworkChange(generation)),
+    );
+  }
+
   void _handleNetworkChange(NetworkSnapshot snapshot) {
     _networkAvailable = snapshot.available;
+    if (_suspended) return;
     final connection = state.connection;
     final activeProfileId = state.activeProfileId;
     if (activeProfileId == null ||
@@ -427,10 +508,15 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   }
 
   Future<void> _recoverAfterNetworkChange(int generation) async {
-    if (generation != _networkGeneration || !_networkAvailable) return;
-    final profileId = state.activeProfileId;
+    if (_suspended || generation != _networkGeneration || !_networkAvailable) {
+      return;
+    }
+    final profileId = state.activeProfileId ?? _suspendedProfileId;
     final engine = _engine;
     if (profileId == null || engine == null) return;
+    if (state.activeProfileId == null) {
+      state = state.copyWith(activeProfileId: profileId);
+    }
     final profile = state.profiles
         .where((candidate) => candidate.id == profileId)
         .firstOrNull;
@@ -728,6 +814,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
 
   Future<void> disconnect() async {
     _cancelPendingNetworkRecovery();
+    _suspendedProfileId = null;
     await _connectionGate.run(() async {
       await _engine?.stop();
     });
@@ -1217,6 +1304,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
       state = state.copyWith(connection: connection);
       if (connection case Connected(:final since)) {
         _lastConnectedSince = since;
+        _suspendedProfileId = null;
         unawaited(refreshClashData());
       } else if (connection is Disconnected ||
           connection is ConnectionFailure) {
@@ -1275,6 +1363,8 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     _networkRecoveryTimer?.cancel();
     unawaited(_networkSubscription?.cancel());
     unawaited(_networkMonitor?.dispose());
+    unawaited(_systemPowerSubscription?.cancel());
+    unawaited(_systemPowerMonitor?.dispose());
     unawaited(_connectionSubscription?.cancel());
     unawaited(_trafficSubscription?.cancel());
     unawaited(_logSubscription?.cancel());

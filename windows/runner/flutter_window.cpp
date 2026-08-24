@@ -4,6 +4,10 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+constexpr char kSystemPowerChannel[] = "com.clashxy.app/system_power";
+}
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -25,6 +29,10 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  power_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), kSystemPowerChannel,
+          &flutter::StandardMethodCodec::GetInstance());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -40,6 +48,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  power_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +60,19 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_POWERBROADCAST && power_channel_) {
+    switch (wparam) {
+      case PBT_APMSUSPEND:
+        power_channel_->InvokeMethod("suspend", nullptr);
+        return TRUE;
+      case PBT_APMRESUMECRITICAL:
+      case PBT_APMRESUMEAUTOMATIC:
+      case PBT_APMRESUMESUSPEND:
+        power_channel_->InvokeMethod("resume", nullptr);
+        return TRUE;
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
