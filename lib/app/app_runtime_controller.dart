@@ -1280,19 +1280,33 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     await _logSubscription?.cancel();
     await _engine?.dispose();
     final support = await getApplicationSupportDirectory();
-    final platform = const WindowsPlatformVpnService();
+    final platform = WindowsPlatformVpnService();
     final process = ProcessManager(logger);
+    final binary = BinaryManager(
+      supportDirectory: support,
+      source: const FlutterAssetMihomoBinarySource(),
+      expectedSha256: _coreSha256,
+    );
+    try {
+      await platform.cleanupStaleNetworkState(
+        deviceName: settings.tunDevice,
+        coreExecutablePath: binary.currentExecutablePath,
+      );
+    } catch (error, stackTrace) {
+      logger.log(
+        LogLevel.warning,
+        'Could not clean stale ClashXY network state during startup.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     final configManager = ConfigManager(
       supportDirectory: support,
       builder: MihomoConfigBuilder(),
     );
     await configManager.clearStale();
     final engine = ConnectionSupervisor(
-      binary: BinaryManager(
-        supportDirectory: support,
-        source: const FlutterAssetMihomoBinarySource(),
-        expectedSha256: _coreSha256,
-      ),
+      binary: binary,
       config: configManager,
       process: process,
       platform: platform,
