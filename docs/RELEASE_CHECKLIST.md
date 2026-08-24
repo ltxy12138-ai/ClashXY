@@ -12,12 +12,12 @@
   configuration, signing certificates, and environment files.
 - [x] Document local data, network requests, security boundaries, and third-party
   software.
-- [ ] Initialize Git only after reviewing the final staged file list.
-- [ ] Run a secret scan over staged files and commit history.
+- [x] Initialize Git only after reviewing the final staged file list.
+- [x] Run a secret scan over staged files and commit history.
 - [x] Scan the publishable source tree for common secret patterns, personal
   Windows paths, local databases, and private key material (2026-08-24). The
   only high-entropy match is an explicit unit-test fixture.
-- [ ] Confirm no AppData, Documents database, exported YAML, lab results, or
+- [x] Confirm no AppData, Documents database, exported YAML, lab results, or
   release ZIP is staged.
 
 ## Verification
@@ -26,6 +26,7 @@
 - [x] `flutter analyze`
 - [x] `flutter test` (37 tests)
 - [x] `flutter build windows --release`
+- [x] GitHub Windows CI (analysis, 37 tests, and Release build).
 - [x] Verify the packaged Mihomo executable SHA-256.
 - [x] Verify `ClashXY.exe` contains the `requireAdministrator` manifest.
 - [x] Verify the release ZIP contains `THIRD_PARTY_NOTICES.md`, the Mihomo GPL
