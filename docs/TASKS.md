@@ -976,6 +976,12 @@ x64 compatible ZIP，只接受 HTTPS GitHub 来源和 Release API 提供的 SHA-
 睡眠 → 唤醒、网络切换、应用/系统重启、自动连接、断开并清理
 ```
 
+已增加发布门禁工具：最终安装包必须通过可信 Authenticode、代码签名 EKU、时间戳、
+发布者与 Windows SDK `signtool` 校验；安装后的主程序和卸载器也必须有效签名。
+P6-010 证据工具仅记录人工检查点与脱敏系统事实，不会自动触发睡眠、重启或切网，
+并要求 Windows 10/11 两次验收使用完全相同的最终安装包哈希。操作说明见
+`docs/CODE_SIGNING_POLICY.md` 与 `docs/WINDOWS_E2E.md`。
+
 **里程碑**
 
 Windows v1.0。

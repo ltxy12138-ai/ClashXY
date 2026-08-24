@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory)]
     [string]$ReleaseDirectory,
     [string]$ExpectedVersion,
-    [string]$ExpectedCoreSha256 = 'CF894375DBC00AB6708C1314AC35BBD29059F4C37F315353AACA7F1A9C566DE6'
+    [string]$ExpectedCoreSha256 = 'CF894375DBC00AB6708C1314AC35BBD29059F4C37F315353AACA7F1A9C566DE6',
+    [switch]$RequireValidSignature,
+    [string]$ExpectedPublisherPattern
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +31,19 @@ foreach ($relative in $required) {
 }
 
 $application = Join-Path $release 'ClashXY.exe'
+if ($RequireValidSignature -and [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+    throw '-ExpectedPublisherPattern is required with -RequireValidSignature.'
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern) -and -not $RequireValidSignature) {
+    throw '-ExpectedPublisherPattern requires -RequireValidSignature.'
+}
+if ($RequireValidSignature) {
+    $verifyArguments = @{ Path = @($application) }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+        $verifyArguments.ExpectedPublisherPattern = $ExpectedPublisherPattern
+    }
+    & (Join-Path $PSScriptRoot 'verify_windows_signatures.ps1') @verifyArguments | Out-Host
+}
 $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($application)
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion) -and $version.ProductVersion -ne $ExpectedVersion) {
     throw "ClashXY.exe product version '$($version.ProductVersion)' did not match '$ExpectedVersion'."

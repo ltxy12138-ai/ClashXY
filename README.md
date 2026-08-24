@@ -41,7 +41,9 @@ and deleted as soon as the core becomes ready.
 Read [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before distributing a build.
 Managed-device identity and future subscription authentication are documented
-in [docs/DEVICE_IDENTITY.md](docs/DEVICE_IDENTITY.md).
+in [docs/DEVICE_IDENTITY.md](docs/DEVICE_IDENTITY.md). Windows releases follow
+the [code-signing policy](docs/CODE_SIGNING_POLICY.md) and the
+[P6-010 clean-machine checklist](docs/WINDOWS_E2E.md).
 
 ## Requirements
 
@@ -76,7 +78,9 @@ To add a language, add `lib/l10n/app_<locale>.arb` with a localized
 locales populate the language menu automatically.
 
 Use `tools/package_windows.ps1` to create a release ZIP containing the
-application and required third-party notices.
+application and required third-party notices. Public releases require trusted,
+timestamped Authenticode signatures; see `docs/CODE_SIGNING_POLICY.md` for the
+required order and verification commands.
 
 ## License and copyright
 

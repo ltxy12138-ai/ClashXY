@@ -83,9 +83,14 @@ sleep/resume recovery, bounded Mihomo crash restart, ownership-scoped TUN/DNS
 cleanup, and verified core update/rollback. The remaining release work is:
 
 - full P6-010 clean-machine and lifecycle E2E evidence
-- trusted code signing for the generated installer
+- trusted code signing for the application, installer, and generated uninstaller
 - clean Windows 10/11 lifecycle smoke test
 - final release publication, checksums, and corresponding-source links
+
+Provider-neutral Authenticode verification and redacted lifecycle evidence
+collection are implemented. The exact release order and manual test procedure
+are documented in `CODE_SIGNING_POLICY.md` and `WINDOWS_E2E.md`; actual trusted
+signing and the two clean-machine runs remain external release gates.
 
 System tray, close-to-tray, native single instance, hidden startup and real HKCU
 startup registration are implemented. The public product name and GPL license

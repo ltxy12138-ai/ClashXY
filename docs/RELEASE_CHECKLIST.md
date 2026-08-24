@@ -37,8 +37,14 @@
   `1.9.0+14` to `1.9.1+15` upgrade preserves existing application data.
 - [x] Run the isolated 2S-UI/Reality/Mihomo/TUN/HTTP lifecycle E2E three
   consecutive times without changing a pre-existing Mihomo adapter.
-- [ ] Sign the installer with a trusted code-signing certificate. No suitable
-  certificate is installed on the current release machine.
+- [x] Add provider-neutral verification that rejects missing/untrusted
+  Authenticode signatures, wrong publisher subjects, missing Code Signing EKU,
+  missing timestamps, or failed Windows SDK `signtool` verification.
+- [x] Add redacted P6-010 checkpoint collection and paired Windows 10/11
+  evidence validation without automating disruptive lifecycle operations.
+- [ ] Sign `ClashXY.exe`, the installer, and generated uninstaller with the same
+  trusted, timestamped code-signing identity. No suitable certificate is
+  installed on the current release machine.
 - [ ] Install and smoke-test on a clean Windows 10/11 x64 machine.
 
 ## Release publication
@@ -62,3 +68,5 @@
   public download.
 - The private Draft Release contains the attested CI artifacts plus
   `SHA256SUMS-1.9.1-build15.txt`.
+- The signing rules and exact clean-machine evidence procedure are documented
+  in `docs/CODE_SIGNING_POLICY.md` and `docs/WINDOWS_E2E.md`.
