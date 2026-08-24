@@ -284,10 +284,30 @@ try {
     $tunHealthy = [bool]$tunResult.Healthy
 
     $proxyUri = [uri]('http://127.0.0.1:' + $mixedPort)
-    $connectivityResponse = Invoke-WebRequest -Uri $ConnectivityUri -Method Get -Proxy $proxyUri -TimeoutSec $TimeoutSeconds -SkipHttpErrorCheck
-    $connectivityStatusCode = [int]$connectivityResponse.StatusCode
-    if ($connectivityStatusCode -lt 200 -or $connectivityStatusCode -ge 300) {
-        throw ('E2E HTTP connectivity returned status ' + $connectivityStatusCode + '.')
+    $connectivityResponse = $null
+    $lastConnectivityError = $null
+    $connectivityDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $connectivityProbeTimeout = [Math]::Max(1, [Math]::Min(3, $TimeoutSeconds))
+    do {
+        try {
+            $candidateResponse = Invoke-WebRequest -Uri $ConnectivityUri -Method Get -Proxy $proxyUri -TimeoutSec $connectivityProbeTimeout -SkipHttpErrorCheck
+            $connectivityStatusCode = [int]$candidateResponse.StatusCode
+            if ($connectivityStatusCode -ge 200 -and $connectivityStatusCode -lt 300) {
+                $connectivityResponse = $candidateResponse
+                break
+            }
+            $lastConnectivityError = 'HTTP ' + $connectivityStatusCode
+        }
+        catch {
+            $lastConnectivityError = $_.Exception.Message
+        }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $connectivityDeadline)
+    if ($null -eq $connectivityResponse) {
+        if ([string]::IsNullOrWhiteSpace($lastConnectivityError)) {
+            throw 'E2E HTTP connectivity did not become ready.'
+        }
+        throw ('E2E HTTP connectivity did not become ready: ' + $lastConnectivityError)
     }
     if (-not [string]::IsNullOrEmpty($ExpectedResponseText) -and -not ([string]$connectivityResponse.Content).Contains($ExpectedResponseText, [System.StringComparison]::Ordinal)) {
         throw 'E2E HTTP connectivity response did not contain the expected marker.'

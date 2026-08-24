@@ -36,6 +36,17 @@ The Windows application includes Flutter engine components and Dart/Flutter
 packages listed in `pubspec.lock`. Flutter generates a `NOTICES.Z` file inside
 the application bundle containing their collected license notices.
 
+## Inno Setup Simplified Chinese translation
+
+The Windows installer includes the user-contributed Simplified Chinese message
+file shipped in the official Inno Setup source tree for tag `is-6_7_3`.
+
+- Upstream project: <https://github.com/jrsoftware/issrc>
+- Exact source: <https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl>
+- Upstream Git blob: `d6a11c4490de07dad443ade668289fc954dfa1ed`
+  (vendored with whitespace-only normalization)
+- Maintainer attribution is preserved in `installer/languages/ChineseSimplified.isl`.
+
 ## 2S-UI
 
 2S-UI is not bundled. The app communicates with a panel supplied and operated by

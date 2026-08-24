@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$CorePath
+    [string]$CorePath,
+    [switch]$KeepArtifacts
 )
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     throw 'ClashXY E2E requires PowerShell 7 or newer. Re-run with: pwsh -NoProfile -File .\tests\e2e_lab_test.ps1 -CorePath <path-to-mihomo.exe>'
@@ -215,7 +216,10 @@ finally {
 
     $realityPrivatePlain = $null
     $uuidPlain = $null
-    if ([System.IO.Directory]::Exists($testRoot)) {
+    if ($KeepArtifacts) {
+        Write-Warning "Preserved E2E artifacts for diagnosis: $testRoot"
+    }
+    elseif ([System.IO.Directory]::Exists($testRoot)) {
         $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
         $resolvedTestRoot = [System.IO.Path]::GetFullPath($testRoot)
         if (-not $resolvedTestRoot.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
