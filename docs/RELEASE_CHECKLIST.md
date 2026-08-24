@@ -27,8 +27,10 @@
 - [x] `flutter test` (73 tests)
 - [x] `flutter build windows --release`
 - [x] GitHub Windows CI (analysis, 73 tests, and Release build).
-- [ ] Run the manual Windows release-candidate workflow on `main`; retain its
-  GitHub/Sigstore provenance attestation with the final artifacts.
+- [x] Run the manual Windows release-candidate workflow on `main`; GitHub run
+  [32709049780](https://github.com/ltxy12138-ai/ClashXY/actions/runs/32709049780)
+  produced the candidate from commit `70ba5e7` and both binary attestations
+  verify against `ltxy12138-ai/ClashXY`.
 - [x] Verify the packaged Mihomo executable SHA-256.
 - [x] Verify `ClashXY.exe` contains the `requireAdministrator` manifest.
 - [x] Verify the release ZIP contains `THIRD_PARTY_NOTICES.md`, the Mihomo GPL
@@ -53,11 +55,13 @@
 
 - Portable: `dist/ClashXY-Windows-x64-1.9.1-build15.zip`
 - Portable SHA-256:
-  `C6EC67633A8552E221B779797BCEC7A88BB13AA7C7E64554D0615A57CD77DFFA`
+  `69C614DDBAAC3E10A142119789321CEA67A5DA07135FDC9449B6B103EB83E27B`
 - Installer: `dist/ClashXY-Setup-x64-1.9.1-build15.exe`
 - Installer SHA-256:
-  `4B36BD463A343FCF67F656BAA8E3CC398DA8D5E5AD2A5A78860F74C65A6DA926`
+  `56FA63C76EE912CF1782C4FC53A93DB2FD5B5EBE323383D81D88F3C3CC590C96`
 - Bundled Mihomo SHA-256:
   `CF894375DBC00AB6708C1314AC35BBD29059F4C37F315353AACA7F1A9C566DE6`
 - The installer is currently unsigned and is a release candidate, not the final
   public download.
+- The private Draft Release points at commit `70ba5e7` and contains the attested
+  CI artifacts plus `SHA256SUMS-1.9.1-build15.txt`.
