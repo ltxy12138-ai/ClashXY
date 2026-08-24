@@ -27,6 +27,8 @@
 - [x] `flutter test` (73 tests)
 - [x] `flutter build windows --release`
 - [x] GitHub Windows CI (analysis, 73 tests, and Release build).
+- [ ] Run the manual Windows release-candidate workflow on `main`; retain its
+  GitHub/Sigstore provenance attestation with the final artifacts.
 - [x] Verify the packaged Mihomo executable SHA-256.
 - [x] Verify `ClashXY.exe` contains the `requireAdministrator` manifest.
 - [x] Verify the release ZIP contains `THIRD_PARTY_NOTICES.md`, the Mihomo GPL
