@@ -66,22 +66,22 @@ flutter build windows --release
 Results:
 
 - `flutter analyze`: no issues
-- `flutter test`: 34 tests passed
+- `flutter test`: 73 tests passed
 - Windows Release: built successfully
 - Release manifest: `requireAdministrator`
 - Packaged Mihomo SHA-256: matches the verified upstream core
 
-## Remaining stabilization work
+## Remaining release work
 
-The MVP does not claim the following stabilization tasks:
+The Windows stabilization implementation now includes network-change and
+sleep/resume recovery, bounded Mihomo crash restart, ownership-scoped TUN/DNS
+cleanup, and verified core update/rollback. The remaining release work is:
 
-- network-change and sleep/resume recovery
-- Mihomo crash restart policy
-- abnormal TUN/DNS cleanup
-- core download/update/rollback UI
+- full P6-010 clean-machine and lifecycle E2E evidence
 - signed installer and upgrade migration
+- final release archive, checksums, corresponding-source links, and smoke test
 
 System tray, close-to-tray, native single instance, hidden startup and real HKCU
-startup registration are implemented. A final public release still requires a
-product-name decision, source-code license, signing, and clean-machine smoke
-test.
+startup registration are implemented. The public product name and GPL license
+are settled; signing, upgrade verification, and clean-machine smoke testing are
+still required.

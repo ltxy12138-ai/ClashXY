@@ -24,9 +24,9 @@
 
 - [x] `flutter gen-l10n`
 - [x] `flutter analyze`
-- [x] `flutter test` (37 tests)
+- [x] `flutter test` (73 tests)
 - [x] `flutter build windows --release`
-- [x] GitHub Windows CI (analysis, 37 tests, and Release build).
+- [x] GitHub Windows CI (analysis, 73 tests, and Release build).
 - [x] Verify the packaged Mihomo executable SHA-256.
 - [x] Verify `ClashXY.exe` contains the `requireAdministrator` manifest.
 - [x] Verify the release ZIP contains `THIRD_PARTY_NOTICES.md`, the Mihomo GPL
@@ -41,9 +41,11 @@
 - [ ] Publish SHA-256 checksums for the release ZIP and bundled core.
 - [ ] Enable GitHub private vulnerability reporting.
 
-## Latest verified local artifact
+## Latest verified pre-fix local artifact
 
-- File: `dist/ClashXY-Windows-x64-1.4.0-build9.zip`
-- SHA-256: `A0D438418AE629732B5A0FAD3C7CFB0C54E0E86E8E183AB90DAE3DCD8812183F`
+- File: `dist/ClashXY-Windows-x64-1.9.0-build14.zip`
+- SHA-256: `65879B9D5459F8A1B4B96961F0928DCFFAA8C20DAA34C63F7C55E24526CD03E8`
+- This archive predates the core-lifecycle review fixes and is not the final
+  `1.9.1+15` release candidate.
 - Bundled Mihomo SHA-256:
   `CF894375DBC00AB6708C1314AC35BBD29059F4C37F315353AACA7F1A9C566DE6`
