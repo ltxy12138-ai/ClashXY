@@ -115,7 +115,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   String? _suspendedProfileId;
   int _networkGeneration = 0;
   DateTime? _lastConnectedSince;
-  final AsyncOperationGate _connectionGate = AsyncOperationGate();
+  final AsyncOperationGate _engineLifecycleGate = AsyncOperationGate();
 
   Future<void> initialize() async {
     try {
@@ -793,7 +793,9 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
 
   Future<void> connect([ConnectionProfile? selected]) async {
     _cancelPendingNetworkRecovery();
-    await _connectionGate.run(() async {
+    if (state.coreUpdate is CoreUpdateApplying) return;
+    await _engineLifecycleGate.run(() async {
+      if (state.coreUpdate is CoreUpdateApplying) return;
       final profile = selected ?? state.profiles.firstOrNull;
       final engine = _engine;
       if (profile == null || engine == null) {
@@ -824,7 +826,7 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   Future<void> disconnect() async {
     _cancelPendingNetworkRecovery();
     _suspendedProfileId = null;
-    await _connectionGate.run(() async {
+    await _engineLifecycleGate.run(() async {
       await _engine?.stop();
     });
   }
@@ -1300,111 +1302,125 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
     final updater = _coreUpdater;
     final release = _availableCoreRelease;
     if (updater == null || release == null || state.coreUpdate.busy) return;
-    if (!_coreCanBeChanged) {
+    await _engineLifecycleGate.run(() async {
+      if (state.coreUpdate.busy) return;
+      if (!_coreCanBeChanged) {
+        state = state.copyWith(
+          coreUpdate: CoreUpdateFailed(
+            currentVersion: state.coreUpdate.currentVersion,
+            canRollback: state.coreUpdate.canRollback,
+            reason: CoreUpdateFailureReason.disconnectRequired,
+          ),
+        );
+        return;
+      }
+      final currentVersion = state.coreUpdate.currentVersion;
+      final canRollback = state.coreUpdate.canRollback;
       state = state.copyWith(
-        coreUpdate: CoreUpdateFailed(
-          currentVersion: state.coreUpdate.currentVersion,
-          canRollback: state.coreUpdate.canRollback,
-          reason: CoreUpdateFailureReason.disconnectRequired,
-        ),
-      );
-      return;
-    }
-    final currentVersion = state.coreUpdate.currentVersion;
-    final canRollback = state.coreUpdate.canRollback;
-    try {
-      await _engine?.stop();
-      final installed = await updater.install(
-        release,
-        onProgress: (stage) {
-          state = state.copyWith(
-            coreUpdate: CoreUpdateApplying(
-              currentVersion: currentVersion,
-              targetVersion: release.version,
-              canRollback: canRollback,
-              stage: switch (stage) {
-                MihomoCoreApplyStage.downloading =>
-                  CoreUpdateApplyStage.downloading,
-                MihomoCoreApplyStage.installing =>
-                  CoreUpdateApplyStage.installing,
-              },
-            ),
-          );
-        },
-      );
-      _availableCoreRelease = null;
-      state = state.copyWith(
-        coreUpdate: CoreUpdateSucceeded(
-          currentVersion: installed.version,
-          canRollback: await updater.binary.canRollback(installed: installed),
-          rolledBack: false,
-        ),
-      );
-    } catch (error, stackTrace) {
-      logger.log(
-        LogLevel.error,
-        'Mihomo core update failed.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        coreUpdate: CoreUpdateFailed(
+        coreUpdate: CoreUpdateApplying(
           currentVersion: currentVersion,
-          canRollback: await _safeCanRollback(),
-          reason: CoreUpdateFailureReason.applyFailed,
+          targetVersion: release.version,
+          canRollback: canRollback,
+          stage: CoreUpdateApplyStage.downloading,
         ),
       );
-    }
+      try {
+        await _engine?.stop();
+        final installed = await updater.install(
+          release,
+          onProgress: (stage) {
+            state = state.copyWith(
+              coreUpdate: CoreUpdateApplying(
+                currentVersion: currentVersion,
+                targetVersion: release.version,
+                canRollback: canRollback,
+                stage: switch (stage) {
+                  MihomoCoreApplyStage.downloading =>
+                    CoreUpdateApplyStage.downloading,
+                  MihomoCoreApplyStage.installing =>
+                    CoreUpdateApplyStage.installing,
+                },
+              ),
+            );
+          },
+        );
+        _availableCoreRelease = null;
+        state = state.copyWith(
+          coreUpdate: CoreUpdateSucceeded(
+            currentVersion: installed.version,
+            canRollback: await updater.binary.canRollback(installed: installed),
+            rolledBack: false,
+          ),
+        );
+      } catch (error, stackTrace) {
+        logger.log(
+          LogLevel.error,
+          'Mihomo core update failed.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        state = state.copyWith(
+          coreUpdate: CoreUpdateFailed(
+            currentVersion: currentVersion,
+            canRollback: await _safeCanRollback(),
+            reason: CoreUpdateFailureReason.applyFailed,
+          ),
+        );
+      }
+    });
   }
 
   Future<void> rollbackCoreUpdate() async {
     final updater = _coreUpdater;
     if (updater == null || state.coreUpdate.busy) return;
-    if (!_coreCanBeChanged) {
+    await _engineLifecycleGate.run(() async {
+      if (state.coreUpdate.busy) return;
+      if (!_coreCanBeChanged) {
+        state = state.copyWith(
+          coreUpdate: CoreUpdateFailed(
+            currentVersion: state.coreUpdate.currentVersion,
+            canRollback: state.coreUpdate.canRollback,
+            reason: CoreUpdateFailureReason.disconnectRequired,
+          ),
+        );
+        return;
+      }
+      final currentVersion = state.coreUpdate.currentVersion;
       state = state.copyWith(
-        coreUpdate: CoreUpdateFailed(
-          currentVersion: state.coreUpdate.currentVersion,
-          canRollback: state.coreUpdate.canRollback,
-          reason: CoreUpdateFailureReason.disconnectRequired,
-        ),
-      );
-      return;
-    }
-    final currentVersion = state.coreUpdate.currentVersion;
-    state = state.copyWith(
-      coreUpdate: CoreUpdateApplying(
-        currentVersion: currentVersion,
-        targetVersion: '',
-        canRollback: state.coreUpdate.canRollback,
-        stage: CoreUpdateApplyStage.rollingBack,
-      ),
-    );
-    try {
-      await _engine?.stop();
-      final installed = await updater.rollback();
-      _availableCoreRelease = null;
-      state = state.copyWith(
-        coreUpdate: CoreUpdateSucceeded(
-          currentVersion: installed.version,
-          canRollback: await updater.binary.canRollback(installed: installed),
-          rolledBack: true,
-        ),
-      );
-    } catch (error, stackTrace) {
-      logger.log(
-        LogLevel.error,
-        'Mihomo core rollback failed.',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        coreUpdate: CoreUpdateFailed(
+        coreUpdate: CoreUpdateApplying(
           currentVersion: currentVersion,
-          canRollback: await _safeCanRollback(),
-          reason: CoreUpdateFailureReason.rollbackFailed,
+          targetVersion: '',
+          canRollback: state.coreUpdate.canRollback,
+          stage: CoreUpdateApplyStage.rollingBack,
         ),
       );
-    }
+      try {
+        await _engine?.stop();
+        final installed = await updater.rollback();
+        _availableCoreRelease = null;
+        state = state.copyWith(
+          coreUpdate: CoreUpdateSucceeded(
+            currentVersion: installed.version,
+            canRollback: await updater.binary.canRollback(installed: installed),
+            rolledBack: true,
+          ),
+        );
+      } catch (error, stackTrace) {
+        logger.log(
+          LogLevel.error,
+          'Mihomo core rollback failed.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        state = state.copyWith(
+          coreUpdate: CoreUpdateFailed(
+            currentVersion: currentVersion,
+            canRollback: await _safeCanRollback(),
+            reason: CoreUpdateFailureReason.rollbackFailed,
+          ),
+        );
+      }
+    });
   }
 
   bool get _coreCanBeChanged =>
@@ -1419,21 +1435,23 @@ class AppRuntimeController extends StateNotifier<AppRuntimeState> {
   }
 
   Future<void> updateSettings(AppSettings settings) async {
-    try {
-      if (settings.launchAtStartup != state.settings.launchAtStartup) {
-        await startupRegistration.setEnabled(settings.launchAtStartup);
+    await _engineLifecycleGate.enqueue(() async {
+      try {
+        if (settings.launchAtStartup != state.settings.launchAtStartup) {
+          await startupRegistration.setEnabled(settings.launchAtStartup);
+        }
+        await settingsStore.save(settings);
+        state = state.copyWith(settings: settings);
+        if (state.connection is Disconnected) {
+          await _createEngine(settings);
+          await _startNetworkMonitoring(settings);
+        }
+      } catch (error) {
+        state = state.copyWith(
+          message: _runtimeError(RuntimeMessageCode.startupUpdateFailed, error),
+        );
       }
-      await settingsStore.save(settings);
-      state = state.copyWith(settings: settings);
-      if (state.connection is Disconnected) {
-        await _createEngine(settings);
-        await _startNetworkMonitoring(settings);
-      }
-    } catch (error) {
-      state = state.copyWith(
-        message: _runtimeError(RuntimeMessageCode.startupUpdateFailed, error),
-      );
-    }
+    });
   }
 
   Future<void> _reloadLocal() async {

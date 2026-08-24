@@ -11,12 +11,14 @@ class GitHubMihomoReleaseSource implements MihomoReleaseSource {
   GitHubMihomoReleaseSource({
     http.Client? client,
     this.timeout = const Duration(seconds: 30),
+    this.totalTimeout = const Duration(minutes: 5),
   }) : _client = client ?? http.Client(),
        _ownsClient = client == null;
 
   final http.Client _client;
   final bool _ownsClient;
   final Duration timeout;
+  final Duration totalTimeout;
 
   @override
   Future<MihomoCoreRelease> latest() async {
@@ -118,6 +120,7 @@ class GitHubMihomoReleaseSource implements MihomoReleaseSource {
     required String accept,
   }) async {
     var currentUri = initialUri;
+    final deadline = DateTime.now().add(totalTimeout);
     try {
       for (var redirect = 0; redirect <= _maxRedirects; redirect++) {
         _validateRequestUri(currentUri);
@@ -128,10 +131,12 @@ class GitHubMihomoReleaseSource implements MihomoReleaseSource {
             'User-Agent': 'ClashXY-Core-Updater',
             'X-GitHub-Api-Version': '2022-11-28',
           });
-        final response = await _client.send(request).timeout(timeout);
+        final response = await _client
+            .send(request)
+            .timeout(_boundedTimeout(deadline));
         if (_redirectStatuses.contains(response.statusCode)) {
           final location = response.headers['location'];
-          await response.stream.drain<void>();
+          await _cancelBody(response.stream, deadline);
           if (location == null || redirect == _maxRedirects) {
             throw const MihomoException(
               'Mihomo download redirected unexpectedly.',
@@ -141,22 +146,19 @@ class GitHubMihomoReleaseSource implements MihomoReleaseSource {
           continue;
         }
         if (response.statusCode != 200) {
-          await response.stream.drain<void>();
+          await _cancelBody(response.stream, deadline);
           throw const MihomoException('Mihomo download request failed.');
         }
         final contentLength = response.contentLength;
         if (contentLength != null && contentLength > maxBytes) {
-          await response.stream.drain<void>();
+          await _cancelBody(response.stream, deadline);
           throw const MihomoException('Mihomo download is too large.');
         }
-        final builder = BytesBuilder(copy: false);
-        await for (final chunk in response.stream.timeout(timeout)) {
-          builder.add(chunk);
-          if (builder.length > maxBytes) {
-            throw const MihomoException('Mihomo download is too large.');
-          }
-        }
-        return builder.takeBytes();
+        return await _readBody(
+          response.stream,
+          maxBytes: maxBytes,
+          deadline: deadline,
+        );
       }
     } on MihomoException {
       rethrow;
@@ -164,6 +166,54 @@ class GitHubMihomoReleaseSource implements MihomoReleaseSource {
       throw MihomoException('Mihomo download failed.', cause: error);
     }
     throw const MihomoException('Mihomo download redirected unexpectedly.');
+  }
+
+  Future<Uint8List> _readBody(
+    Stream<List<int>> stream, {
+    required int maxBytes,
+    required DateTime deadline,
+  }) async {
+    final builder = BytesBuilder(copy: false);
+    final iterator = StreamIterator<List<int>>(stream);
+    try {
+      while (await iterator.moveNext().timeout(_boundedTimeout(deadline))) {
+        builder.add(iterator.current);
+        if (builder.length > maxBytes) {
+          throw const MihomoException('Mihomo download is too large.');
+        }
+      }
+      return builder.takeBytes();
+    } finally {
+      await _cancelIterator(iterator, deadline);
+    }
+  }
+
+  Future<void> _cancelIterator(
+    StreamIterator<List<int>> iterator,
+    DateTime deadline,
+  ) async {
+    final cancellation = iterator.cancel();
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      unawaited(cancellation.catchError((Object _) {}));
+      return;
+    }
+    try {
+      await cancellation.timeout(remaining);
+    } catch (_) {}
+  }
+
+  Future<void> _cancelBody(Stream<List<int>> stream, DateTime deadline) async {
+    final subscription = stream.listen((_) {});
+    await subscription.cancel().timeout(_boundedTimeout(deadline));
+  }
+
+  Duration _boundedTimeout(DateTime deadline) {
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      throw TimeoutException('Mihomo download exceeded its total deadline.');
+    }
+    return remaining < timeout ? remaining : timeout;
   }
 
   static void _validateRequestUri(Uri uri) {

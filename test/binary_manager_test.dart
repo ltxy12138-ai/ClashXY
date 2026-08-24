@@ -79,7 +79,7 @@ void main() {
   });
 
   test(
-    'rollback restores the previous core and retains the newer fallback',
+    'rollback restores only an older core and cannot switch forward again',
     () async {
       final bundle = _coreBytes('1.0.0');
       final manager = _manager(support, bundle: bundle);
@@ -91,9 +91,8 @@ void main() {
       final rolledBack = await manager.rollback();
 
       expect(rolledBack.version, '1.0.0');
-      expect(await manager.canRollback(), isTrue);
-      final secondSwitch = await manager.rollback();
-      expect(secondSwitch.version, '2.0.0');
+      expect(await manager.canRollback(), isFalse);
+      await expectLater(manager.rollback(), throwsA(isA<MihomoException>()));
     },
   );
 
