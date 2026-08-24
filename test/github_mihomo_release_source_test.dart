@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:clashxy/core/errors/app_exception.dart';
@@ -73,6 +74,37 @@ void main() {
     await expectLater(source.latest(), throwsA(isA<MihomoException>()));
     source.dispose();
   });
+
+  test(
+    'enforces an absolute deadline for a continuously active body',
+    () async {
+      final source = GitHubMihomoReleaseSource(
+        client: _SlowStreamingClient(),
+        timeout: const Duration(milliseconds: 100),
+        totalTimeout: const Duration(milliseconds: 45),
+      );
+      final stopwatch = Stopwatch()..start();
+
+      await expectLater(source.latest(), throwsA(isA<MihomoException>()));
+
+      stopwatch.stop();
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 1)));
+      source.dispose();
+    },
+  );
+}
+
+class _SlowStreamingClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(
+      Stream<List<int>>.periodic(
+        const Duration(milliseconds: 10),
+        (_) => const <int>[32],
+      ),
+      200,
+    );
+  }
 }
 
 Map<String, dynamic> _payload() => <String, dynamic>{

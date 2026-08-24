@@ -115,7 +115,9 @@ class BinaryManager {
   Future<bool> canRollback({InstalledMihomoCore? installed}) async {
     final current = installed ?? await inspect();
     final previous = await _validInstallation(_previousFile, _previousMetadata);
-    return previous != null && previous.sha256 != current.sha256;
+    return previous != null &&
+        previous.sha256 != current.sha256 &&
+        _isOlderVersion(previous.version, current.version);
   }
 
   Future<InstalledMihomoCore> installUpdate({
@@ -200,7 +202,9 @@ class BinaryManager {
   Future<InstalledMihomoCore> rollback() async {
     final current = await inspect();
     final previous = await _validInstallation(_previousFile, _previousMetadata);
-    if (previous == null || previous.sha256 == current.sha256) {
+    if (previous == null ||
+        previous.sha256 == current.sha256 ||
+        !_isOlderVersion(previous.version, current.version)) {
       throw const MihomoException(
         'No verified previous Mihomo core is available.',
       );
@@ -348,6 +352,16 @@ class BinaryManager {
       throw const MihomoException('Mihomo core version is invalid.');
     }
     return '${match[1]}.${match[2]}.${match[3]}';
+  }
+
+  static bool _isOlderVersion(String candidate, String current) {
+    final candidateParts = candidate.split('.').map(int.parse).toList();
+    final currentParts = current.split('.').map(int.parse).toList();
+    for (var index = 0; index < candidateParts.length; index++) {
+      final comparison = candidateParts[index].compareTo(currentParts[index]);
+      if (comparison != 0) return comparison < 0;
+    }
+    return false;
   }
 
   static Future<String> _probeVersion(File executable) async {

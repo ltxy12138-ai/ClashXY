@@ -105,6 +105,31 @@ void main() {
     expect(calls, 1);
   });
 
+  test('queued lifecycle work waits for the active operation', () async {
+    final gate = AsyncOperationGate();
+    final entered = Completer<void>();
+    final release = Completer<void>();
+    final order = <String>[];
+
+    final active = gate.run(() async {
+      order.add('active-start');
+      entered.complete();
+      await release.future;
+      order.add('active-end');
+    });
+    await entered.future;
+    final queued = gate.enqueue(() async => order.add('queued'));
+
+    await Future<void>.delayed(Duration.zero);
+    expect(order, <String>['active-start']);
+    release.complete();
+    await active;
+    await queued;
+
+    expect(order, <String>['active-start', 'active-end', 'queued']);
+    expect(gate.active, isFalse);
+  });
+
   group('provisioning', () {
     const factory = ProfileFactory();
 

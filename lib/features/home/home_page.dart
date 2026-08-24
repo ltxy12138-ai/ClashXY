@@ -21,6 +21,7 @@ class HomePage extends ConsumerWidget {
         state.connection is Connecting ||
         state.connection is Reconnecting ||
         state.connection is Stopping;
+    final coreChanging = state.coreUpdate is CoreUpdateApplying;
     return _PageFrame(
       title: l10n.navHome,
       subtitle: state.profiles.isEmpty
@@ -67,7 +68,7 @@ class HomePage extends ConsumerWidget {
                     )
                   else
                     FilledButton.icon(
-                      onPressed: transitioning
+                      onPressed: transitioning || coreChanging
                           ? null
                           : connected
                           ? controller.disconnect
