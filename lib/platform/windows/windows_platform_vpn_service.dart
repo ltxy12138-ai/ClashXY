@@ -3,9 +3,13 @@ import 'dart:io';
 
 import '../../core/errors/app_exception.dart';
 import '../platform_vpn_service.dart';
+import 'windows_network_cleanup.dart';
 
 class WindowsPlatformVpnService implements PlatformVpnService {
-  const WindowsPlatformVpnService();
+  WindowsPlatformVpnService({WindowsNetworkCleanup? networkCleanup})
+    : _networkCleanup = networkCleanup ?? WindowsNetworkCleanup();
+
+  final WindowsNetworkCleanup _networkCleanup;
 
   @override
   Future<bool> isAdministrator() async {
@@ -21,7 +25,7 @@ class WindowsPlatformVpnService implements PlatformVpnService {
 
   @override
   Future<bool> adapterExists(String deviceName) async {
-    if (!_safeName.hasMatch(deviceName)) {
+    if (!WindowsNetworkCleanup.safeDeviceName.hasMatch(deviceName)) {
       throw const MihomoException(
         'TUN device name contains unsupported characters.',
       );
@@ -75,5 +79,14 @@ class WindowsPlatformVpnService implements PlatformVpnService {
     }
   }
 
-  static final RegExp _safeName = RegExp(r'^[A-Za-z0-9 _.-]{1,64}$');
+  @override
+  Future<void> cleanupStaleNetworkState({
+    required String deviceName,
+    required String coreExecutablePath,
+  }) async {
+    await _networkCleanup.cleanup(
+      deviceName: deviceName,
+      coreExecutablePath: coreExecutablePath,
+    );
+  }
 }

@@ -6,4 +6,9 @@ abstract interface class PlatformVpnService {
   Future<List<String>> activeMihomoTunAdapters();
 
   Future<bool> hasInternetConnectivity();
+
+  Future<void> cleanupStaleNetworkState({
+    required String deviceName,
+    required String coreExecutablePath,
+  });
 }

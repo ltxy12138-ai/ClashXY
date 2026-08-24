@@ -417,9 +417,15 @@ class ConnectionSupervisor implements MihomoEngine {
   ) async {
     try {
       await _cleanup();
+      await platform.cleanupStaleNetworkState(
+        deviceName: settings.tunDevice,
+        coreExecutablePath: binary.currentExecutablePath,
+      );
     } catch (_) {
       if (!_disposed && !_stopping && generation == _crashRecoveryGeneration) {
-        _states.add(const ConnectionFailure('Mihomo 意外退出后的运行状态清理失败，请手动重连。'));
+        _states.add(
+          const ConnectionFailure('Mihomo 意外退出后的 TUN/DNS 状态清理失败，请手动重连或重启系统。'),
+        );
       }
       return;
     } finally {

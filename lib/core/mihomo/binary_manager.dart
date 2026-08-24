@@ -20,14 +20,16 @@ class BinaryManager {
   final MihomoBinarySource source;
   final String expectedSha256;
 
+  String get currentExecutablePath =>
+      '${supportDirectory.path}${Platform.pathSeparator}core'
+      '${Platform.pathSeparator}current.exe';
+
   Future<File> ensureInstalled() async {
     final coreDirectory = Directory(
       '${supportDirectory.path}${Platform.pathSeparator}core',
     );
     await coreDirectory.create(recursive: true);
-    final current = File(
-      '${coreDirectory.path}${Platform.pathSeparator}current.exe',
-    );
+    final current = File(currentExecutablePath);
     if (await current.exists() && await _valid(current)) return current;
 
     final bytes = await source.load();
