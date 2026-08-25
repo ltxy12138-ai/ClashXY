@@ -17,9 +17,9 @@
 AppId={{B653B669-E2AB-4D8C-9F65-E642A15D3B45}
 AppName=ClashXY
 AppPublisher=ClashXY contributors
-AppPublisherURL=https://github.com/ltxy12138-ai/ClashXY
-AppSupportURL=https://github.com/ltxy12138-ai/ClashXY/issues
-AppUpdatesURL=https://github.com/ltxy12138-ai/ClashXY/releases
+AppPublisherURL=https://github.com/Leetxy/ClashXY
+AppSupportURL=https://github.com/Leetxy/ClashXY/issues
+AppUpdatesURL=https://github.com/Leetxy/ClashXY/releases
 AppVersion={#AppVersion}
 AppVerName=ClashXY {#AppVersion} (build {#AppBuild})
 VersionInfoVersion={#AppVersionInfo}

@@ -1,8 +1,8 @@
 name: clashxy
 description: "A multilingual Windows Mihomo/Clash client with subscriptions, TUN networking, and optional 2S-UI device management."
-homepage: https://github.com/ltxy12138-ai/ClashXY
-repository: https://github.com/ltxy12138-ai/ClashXY
-issue_tracker: https://github.com/ltxy12138-ai/ClashXY/issues
+homepage: https://github.com/Leetxy/ClashXY
+repository: https://github.com/Leetxy/ClashXY
+issue_tracker: https://github.com/Leetxy/ClashXY/issues
 # This desktop application is distributed from GitHub rather than pub.dev.
 publish_to: 'none'
 

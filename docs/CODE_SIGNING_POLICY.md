@@ -56,9 +56,9 @@ pages will include the required acknowledgement:
 
 ## Team roles
 
-- Authors and committers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
-- Reviewers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
-- Signing approvers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
+- Authors and committers: [Leetxy](https://github.com/Leetxy)
+- Reviewers: [Leetxy](https://github.com/Leetxy)
+- Signing approvers: [Leetxy](https://github.com/Leetxy)
 
 Changes proposed by other contributors require review by the listed reviewer.
 Every signing request requires a separate manual decision by the signing
@@ -126,11 +126,29 @@ evidence collection; it does not replace the strict release gate.
   ) `
   -ExpectedPublisherPattern '<approved subject regex>'
 
-gh attestation verify `
-  --repo ltxy12138-ai/ClashXY `
-  .\dist\ClashXY-Windows-x64-1.9.1-build15.zip `
-  .\dist\ClashXY-Setup-x64-1.9.1-build15.exe
+gh attestation verify '.\dist\ClashXY-Windows-x64-VERSION.zip' `
+  --repo Leetxy/ClashXY
 ```
 
 The installed `ClashXY.exe` and generated uninstaller are checked by the
 installer lifecycle test and again in each P6-010 evidence run.
+
+### Historical repository identity
+
+The `v1.9.1` prerelease attestations were issued before the GitHub account was
+renamed from `ltxy12138-ai` to `Leetxy`. GitHub preserves those attestations
+under their original repository identity. Verify each historical artifact
+separately:
+
+```powershell
+gh attestation verify `
+  .\dist\ClashXY-Windows-x64-1.9.1-build15.zip `
+  --repo ltxy12138-ai/ClashXY
+
+gh attestation verify `
+  .\dist\ClashXY-Setup-x64-1.9.1-build15.exe `
+  --repo ltxy12138-ai/ClashXY
+```
+
+This exception records immutable historical provenance; source, support, and
+future attestation links use `Leetxy/ClashXY`.

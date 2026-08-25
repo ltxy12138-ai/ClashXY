@@ -2,10 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-[![Windows CI](https://github.com/ltxy12138-ai/ClashXY/actions/workflows/windows-ci.yml/badge.svg?branch=main)](https://github.com/ltxy12138-ai/ClashXY/actions/workflows/windows-ci.yml)
-[![Release](https://img.shields.io/github/v/release/ltxy12138-ai/ClashXY?include_prereleases&label=release)](https://github.com/ltxy12138-ai/ClashXY/releases)
+[![Windows CI](https://github.com/Leetxy/ClashXY/actions/workflows/windows-ci.yml/badge.svg?branch=main)](https://github.com/Leetxy/ClashXY/actions/workflows/windows-ci.yml)
+[![Release](https://img.shields.io/github/v/release/Leetxy/ClashXY?include_prereleases&label=release)](https://github.com/Leetxy/ClashXY/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows)](https://github.com/ltxy12138-ai/ClashXY/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows)](https://github.com/Leetxy/ClashXY/releases)
 
 **A multilingual Windows Mihomo / Clash client with subscription and YAML
 profiles, TUN networking, and optional 2S-UI device management.**
@@ -21,7 +21,7 @@ or 2S-UI.
 > [!WARNING]
 > The current `v1.9.1` prerelease is unsigned and intended for testing. Windows
 > may show an unknown-publisher warning. Download it only from the official
-> [GitHub Releases page](https://github.com/ltxy12138-ai/ClashXY/releases) and
+> [GitHub Releases page](https://github.com/Leetxy/ClashXY/releases) and
 > verify the published SHA-256 checksums before running it.
 
 ## Highlights
@@ -69,7 +69,7 @@ Windows 10 or Windows 11 x64 is required. Administrator access is required for
 the current application manifest and TUN lifecycle.
 
 Download the installer, portable archive, and matching checksum file from
-[GitHub Releases](https://github.com/ltxy12138-ai/ClashXY/releases). The
+[GitHub Releases](https://github.com/Leetxy/ClashXY/releases). The
 installer is the normal choice; use the portable ZIP when you want to keep the
 application directory together and manage shortcuts yourself.
 
@@ -172,7 +172,7 @@ optional 2S-UI integration are implemented; trusted code signing and final
 clean-machine Windows 10/11 validation are still required before a stable
 release. Android is a planned later phase and is not currently supported.
 
-Bug reports and contributions are welcome through [GitHub Issues](https://github.com/ltxy12138-ai/ClashXY/issues).
+Bug reports and contributions are welcome through [GitHub Issues](https://github.com/Leetxy/ClashXY/issues).
 Do not include subscription URLs, credentials, tokens, exported YAML, or
 unredacted logs in public reports.
 
