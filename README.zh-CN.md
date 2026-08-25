@@ -2,10 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-[![Windows CI](https://github.com/ltxy12138-ai/ClashXY/actions/workflows/windows-ci.yml/badge.svg?branch=main)](https://github.com/ltxy12138-ai/ClashXY/actions/workflows/windows-ci.yml)
-[![Release](https://img.shields.io/github/v/release/ltxy12138-ai/ClashXY?include_prereleases&label=release)](https://github.com/ltxy12138-ai/ClashXY/releases)
+[![Windows CI](https://github.com/Leetxy/ClashXY/actions/workflows/windows-ci.yml/badge.svg?branch=main)](https://github.com/Leetxy/ClashXY/actions/workflows/windows-ci.yml)
+[![Release](https://img.shields.io/github/v/release/Leetxy/ClashXY?include_prereleases&label=release)](https://github.com/Leetxy/ClashXY/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows)](https://github.com/ltxy12138-ai/ClashXY/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows)](https://github.com/Leetxy/ClashXY/releases)
 
 **支持订阅与 YAML、Windows TUN、多语言界面，并可选管理 2S-UI 设备的
 Mihomo / Clash 桌面客户端。**
@@ -18,7 +18,7 @@ ClashXY 是独立项目，与 MetaCubeX、Clash 或 2S-UI 均无隶属关系。
 
 > [!WARNING]
 > 当前 `v1.9.1` 是用于测试的未签名预发布版，Windows 可能提示未知发布者。请只从
-> [GitHub Releases](https://github.com/ltxy12138-ai/ClashXY/releases) 下载，
+> [GitHub Releases](https://github.com/Leetxy/ClashXY/releases) 下载，
 > 并在运行前核对发布页提供的 SHA-256 校验值。
 
 ## 主要功能
@@ -55,7 +55,7 @@ ClashXY 是独立项目，与 MetaCubeX、Clash 或 2S-UI 均无隶属关系。
 
 当前支持 Windows 10 / 11 x64。现有应用清单和 TUN 生命周期需要管理员权限。
 
-请从 [GitHub Releases](https://github.com/ltxy12138-ai/ClashXY/releases)
+请从 [GitHub Releases](https://github.com/Leetxy/ClashXY/releases)
 下载安装包、便携 ZIP 和对应校验文件。一般用户建议使用安装包；希望自行管理目录与
 快捷方式时可以使用便携版。
 
@@ -142,7 +142,7 @@ Windows 客户端当前处于公开预发布阶段。通用 Clash 功能和可�
 正式发布前仍需完成可信代码签名与干净 Windows 10/11 最终验证。Android 属于后续
 规划，目前尚不支持。
 
-欢迎通过 [GitHub Issues](https://github.com/ltxy12138-ai/ClashXY/issues)
+欢迎通过 [GitHub Issues](https://github.com/Leetxy/ClashXY/issues)
 提交问题和建议。公开报告中请勿包含订阅 URL、凭据、Token、导出 YAML 或未脱敏日志。
 
 ## 许可证与致谢
