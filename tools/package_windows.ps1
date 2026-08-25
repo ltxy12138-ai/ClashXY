@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$Flutter = 'flutter',
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$RequireValidSignature,
+    [string]$ExpectedPublisherPattern
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,6 +25,20 @@ if (-not $SkipBuild) {
 $release = Join-Path $repository 'build\windows\x64\runner\Release'
 if (-not (Test-Path -LiteralPath (Join-Path $release 'ClashXY.exe'))) {
     throw "Expected release executable was not found under $release."
+}
+
+if ($RequireValidSignature -and [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+    throw '-ExpectedPublisherPattern is required with -RequireValidSignature.'
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern) -and -not $RequireValidSignature) {
+    throw '-ExpectedPublisherPattern requires -RequireValidSignature.'
+}
+if ($RequireValidSignature) {
+    $verifyArguments = @{ Path = @((Join-Path $release 'ClashXY.exe')) }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+        $verifyArguments.ExpectedPublisherPattern = $ExpectedPublisherPattern
+    }
+    & (Join-Path $PSScriptRoot 'verify_windows_signatures.ps1') @verifyArguments | Out-Host
 }
 
 $dist = Join-Path $repository 'dist'
@@ -61,6 +77,8 @@ try {
 
 $hash = Get-FileHash -LiteralPath $archive -Algorithm SHA256
 [pscustomobject]@{
-    Archive = $archive
-    SHA256  = $hash.Hash
+    Archive              = $archive
+    SHA256               = $hash.Hash
+    ApplicationSHA256    = (Get-FileHash -LiteralPath (Join-Path $release 'ClashXY.exe') -Algorithm SHA256).Hash
+    SignatureRequired    = [bool]$RequireValidSignature
 }

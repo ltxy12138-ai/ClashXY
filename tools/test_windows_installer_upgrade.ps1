@@ -3,7 +3,9 @@ param(
     [string]$OldPortableZip = (Join-Path $PSScriptRoot '..\dist\ClashXY-Windows-x64-1.9.0-build14.zip'),
     [string]$NewInstaller,
     [string]$Iscc,
-    [switch]$InstallOnly
+    [switch]$InstallOnly,
+    [switch]$RequireValidSignature,
+    [string]$ExpectedPublisherPattern
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,6 +41,24 @@ if ([string]::IsNullOrWhiteSpace($NewInstaller)) {
 $newInstallerPath = [System.IO.Path]::GetFullPath($NewInstaller)
 if (-not (Test-Path -LiteralPath $newInstallerPath)) {
     throw "New installer was not found: $newInstallerPath"
+}
+
+if ($RequireValidSignature -and [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+    throw '-ExpectedPublisherPattern is required with -RequireValidSignature.'
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern) -and -not $RequireValidSignature) {
+    throw '-ExpectedPublisherPattern requires -RequireValidSignature.'
+}
+$signatureVerifier = Join-Path $PSScriptRoot 'verify_windows_signatures.ps1'
+$installerPublisher = $null
+if ($RequireValidSignature) {
+    $verifyArguments = @{ Path = @($newInstallerPath) }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+        $verifyArguments.ExpectedPublisherPattern = $ExpectedPublisherPattern
+    }
+    $installerSignature = @(& $signatureVerifier @verifyArguments)
+    $installerSignature | Out-Host
+    $installerPublisher = $installerSignature[0].Publisher
 }
 
 if (-not $InstallOnly -and [string]::IsNullOrWhiteSpace($Iscc)) {
@@ -161,6 +181,18 @@ try {
     $installedNewVersion = (Get-Item -LiteralPath $installedExecutable).VersionInfo.ProductVersion.Trim()
     if ($installedNewVersion -ne "$newVersion+$newBuild") {
         throw "Upgraded install version mismatch: $installedNewVersion"
+    }
+
+    if ($RequireValidSignature) {
+        $verifyArguments = @{ Path = @($installedExecutable, $uninstaller) }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+            $verifyArguments.ExpectedPublisherPattern = $ExpectedPublisherPattern
+        }
+        $installedSignatures = @(& $signatureVerifier @verifyArguments)
+        $installedSignatures | Out-Host
+        if (@($installedSignatures | Where-Object { $_.Publisher -ne $installerPublisher }).Count -gt 0) {
+            throw 'Installed ClashXY.exe and uninstaller must use the installer Authenticode publisher.'
+        }
     }
 
     $after = Get-AppDataFingerprint -Root $appDataRoot

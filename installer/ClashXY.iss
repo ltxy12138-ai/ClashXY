@@ -58,7 +58,15 @@ Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+#ifdef SignToolName
+; Sign only the first-party executable with the ClashXY publisher identity.
+; Bundled upstream binaries (including Mihomo and Flutter dependencies) retain
+; their original provenance and must not be re-signed as ClashXY.
+Source: "{#SourceDir}\ClashXY.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
+Source: "{#SourceDir}\*"; Excludes: "ClashXY.exe"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#else
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#endif
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "..\NOTICE.md"; DestDir: "{app}\licenses"; Flags: ignoreversion

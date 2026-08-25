@@ -3,10 +3,19 @@ param(
     [string]$Flutter = 'flutter',
     [string]$Iscc,
     [switch]$SkipBuild,
-    [string]$SignToolCommand
+    [string]$SignToolCommand,
+    [string]$ExpectedPublisherPattern
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not [string]::IsNullOrWhiteSpace($SignToolCommand) -and
+    [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+    throw '-ExpectedPublisherPattern is required whenever -SignToolCommand is used.'
+}
+if ([string]::IsNullOrWhiteSpace($SignToolCommand) -and
+    -not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+    throw '-ExpectedPublisherPattern cannot be used without -SignToolCommand.'
+}
 $repository = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pubspec = Join-Path $repository 'pubspec.yaml'
 $versionLine = Select-String -LiteralPath $pubspec -Pattern '^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$' | Select-Object -First 1
@@ -69,9 +78,29 @@ if (-not (Test-Path -LiteralPath $installer)) {
     throw "Expected installer was not created: $installer"
 }
 
+$signatureResults = @()
+if (-not [string]::IsNullOrWhiteSpace($SignToolCommand)) {
+    $verifier = Join-Path $PSScriptRoot 'verify_windows_signatures.ps1'
+    $verifyArguments = @{
+        Path = @(
+            (Join-Path $release 'ClashXY.exe'),
+            $installer
+        )
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisherPattern)) {
+        $verifyArguments.ExpectedPublisherPattern = $ExpectedPublisherPattern
+    }
+    $signatureResults = @(& $verifier @verifyArguments)
+    $publishers = @($signatureResults | ForEach-Object { $_.Publisher } | Sort-Object -Unique)
+    if ($publishers.Count -ne 1) {
+        throw 'ClashXY.exe and the installer must have the same Authenticode publisher.'
+    }
+}
+
 $hash = Get-FileHash -LiteralPath $installer -Algorithm SHA256
 [pscustomobject]@{
     Installer = $installer
     SHA256    = $hash.Hash
     Signed    = -not [string]::IsNullOrWhiteSpace($SignToolCommand)
+    SignaturesVerified = $signatureResults.Count
 }
