@@ -45,6 +45,19 @@ in [docs/DEVICE_IDENTITY.md](docs/DEVICE_IDENTITY.md). Windows releases follow
 the [code-signing policy](docs/CODE_SIGNING_POLICY.md) and the
 [P6-010 clean-machine checklist](docs/WINDOWS_E2E.md).
 
+## Code signing policy
+
+ClashXY is applying to the SignPath Foundation program. The program requires
+this acknowledgement:
+
+> Free code signing provided by SignPath.io, certificate by SignPath Foundation
+
+This acknowledgement describes the intended signing provider; it does not mean
+that an unsigned prerelease is signed or that the application has been
+approved. Trust a release as signed only when its Authenticode signatures pass
+the verification gates in the [code-signing policy](docs/CODE_SIGNING_POLICY.md).
+The policy also identifies the authors, reviewers, and signing approvers.
+
 ## Requirements
 
 - Windows 10 or Windows 11 x64

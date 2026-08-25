@@ -2,10 +2,13 @@
 
 ## Release requirement
 
-Every public Windows release must use a trusted Authenticode code-signing
-identity and an RFC 3161-compatible trusted timestamp. GitHub artifact
-attestations prove which repository workflow produced an artifact; they do not
-replace the Windows Authenticode trust decision. Both controls are required.
+Every stable Windows release must use a trusted Authenticode code-signing
+identity and an RFC 3161-compatible trusted timestamp. An unsigned prerelease
+candidate may be published only for testing or signing-provider evaluation,
+must carry a prominent unsigned warning, and must not be promoted to a stable
+release. GitHub artifact attestations prove which repository workflow produced
+an artifact; they do not replace the Windows Authenticode trust decision. Both
+controls are required for stable releases.
 
 The following first-party files must have a valid signature from the same
 publisher:
@@ -41,6 +44,33 @@ This policy is provider-neutral. SignPath Foundation and Azure Artifact Signing
 are both compatible choices once their external identity-validation and project
 approval requirements have been completed. Provider approval must never be
 claimed before it is actually granted.
+
+## SignPath Foundation application
+
+ClashXY is applying to the SignPath Foundation program. No artifact may be
+described as SignPath-signed until the application is approved and the release
+passes the verification gates below. If accepted, signed release and download
+pages will include the required acknowledgement:
+
+> Free code signing provided by SignPath.io, certificate by SignPath Foundation
+
+## Team roles
+
+- Authors and committers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
+- Reviewers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
+- Signing approvers: [ltxy12138-ai](https://github.com/ltxy12138-ai)
+
+Changes proposed by other contributors require review by the listed reviewer.
+Every signing request requires a separate manual decision by the signing
+approver. These assignments must be updated before repository or signing access
+is delegated to another maintainer.
+
+## Privacy policy
+
+The project privacy policy is published in [PRIVACY.md](../PRIVACY.md).
+ClashXY does not transfer information to project-operated networked systems.
+Network requests occur only when requested by the user or required by an
+imported profile, user-supplied service, or user-initiated Core update.
 
 ## Required build order
 
